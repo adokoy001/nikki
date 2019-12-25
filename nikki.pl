@@ -182,7 +182,7 @@ sub make_nikki{
   }
   open(my $fh, ">", $dir.$filename) or die "$!\n";
   print $fh "_=_TITLE_START_=_ title here _=_TITLE_END_=_\n"
-    ."_=_TAG_START_=_\nfoo bar baz_=_TAG_END_=_\n"
+    ."_=_TAG_START_=_\nfoo bar baz\n_=_TAG_END_=_\n"
     ."_=_HEAD_START_=_\n_=_HEAD_END_=_\n_=_BODY_BELOW_=_\n";
   close($fh);
   print "empty article created. edit ".$dir.$filename."\n";
@@ -254,5 +254,6 @@ sub compile_articles{
     $body_below =~ s/^==hr/<hr>/msg;
     $body_below =~ s/^==uls(.*?)==ule/<ul>$1<\/ul>/msg;
     $body_below =~ s/==li\s{1}(.*?)([\r\n|\n|\r])/<li>$1<\/li>$2/msg;
+    $body_below =~ s/^==codes[\r\n|\n|\r](.*?)==codee/<pre><code>$1<\/code><\/pre>/msg;
   }
 }
