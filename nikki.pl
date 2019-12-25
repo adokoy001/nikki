@@ -2,12 +2,14 @@ use strict;
 use warnings;
 use FindBin;
 use File::Path;
+use Digest::MD5 qw(md5_hex);
+use Storable qw(nstore retrieve);
+use Safe;
 
 ####################################
 #
 #              NIKKI
-#
-#   the simple diary authoring tool
+#   a simple diary authoring tool
 #
 ####################################
 
@@ -29,6 +31,7 @@ our $dirs =
 our $files =
   {
    config => $dirs->{config_dir} . 'config.conf',
+   hist => $dirs->{hist_dir} . 'hist.db',
    template_base => $dirs->{template_dir} . 'base.tmpl',
    template_index => $dirs->{template_dir} . 'index.tmpl',
    template_archive => $dirs->{template_dir} . 'archive.tmpl',
@@ -42,7 +45,7 @@ my $name = $ARGV[1] // 0;
 if($command eq 'init'){
 
   if(&check_build){
-    print "NIKKI Already Exists! Aborted.\nTry:  nikki.pl init-force\n";
+    print "NIKKI Already Exists! Aborted.\nTry: perl nikki.pl init-force\n";
   }else{
     &make_dirs;
     &make_init_files;
@@ -98,15 +101,52 @@ sub make_dirs{
   }
 }
 
+## get current timestamp
+
+sub get_current_timestamp {
+  my ($second, $minute, $hour, $mday, $month, $year) = localtime;
+  $month += 1;
+  $year  += 1900;
+  $month = sprintf("%02d",$month);
+  my $day = sprintf("%02d",$mday);
+  $hour = sprintf("%02d",$hour);
+  my $min = sprintf("%02d",$minute);
+  my $sec = sprintf("%02d",$second);
+  my $current_timestamp = $year.'-'.$month.'-'.$day.' '.$hour.':'.$min.':'.$sec;
+  return $current_timestamp;
+}
+
 ## make essential files
 sub make_init_files{
 
   if(-f $files->{config}){
     print "Already Exists. Skipped.\n";
   }else{
-    open(my $fh, ">", $files->{config}) or die "$!\n";
-    print $fh "{site_name => 'MY NIKKI', author => 'MY NAME'}";
+    my $config_init = "
+      {
+       site_name => 'SITE NAME',
+       author => 'AUTHOR',
+      };
+    ";
+    open(my $fh, ">", $files->{config});
+    print $fh $config_init;
     close($fh);
+  }
+
+  if(-f $files->{hist}){
+    print "Already Exists. Skipped.\n";
+  }else{
+    my $current_timestamp = &get_current_timestamp();
+    my $hist_init =
+      {
+       meta => {
+		created_at => $current_timestamp,
+		updated_at => $current_timestamp
+	       },
+       articles => {}
+      };
+    nstore $hist_init, $files->{hist};
+    
   }
 
   if(-f $files->{template_base}){
@@ -166,31 +206,44 @@ sub make_nikki{
   $year  += 1900;
   $month = sprintf("%02d",$month);
   my $day = sprintf("%02d",$mday);
-  my $dir = $dirs->{article_dir}.$year.'/'.$month.'/';
+  my $relational_path = $year.'/'.$month.'/';
+  my $dir = $dirs->{article_dir}.$relational_path;
   unless(-d $dir){
     mkpath($dir) or die "Could not create directory: $!\n";
   }
   my $filename_base = $year.'_'.$month.'_'.$day.'_';
   my $filename = $filename_base.$epoch.$proc.'.nk';
-  for(1 .. 10000){
+  for(1 .. 999){
     my $num = $_;
-    my $tmp_filename = $filename_base.$num.'.nk';
+    my $tmp_filename = $filename_base.sprintf("%03d",$num).'.nk';
     unless(-e $dir.$tmp_filename){
       $filename = $tmp_filename;
       last;
     }
   }
   open(my $fh, ">", $dir.$filename) or die "$!\n";
-  print $fh "_=_TITLE_START_=_ title here _=_TITLE_END_=_\n"
-    ."_=_TAG_START_=_\nfoo bar baz\n_=_TAG_END_=_\n"
-    ."_=_HEAD_START_=_\n_=_HEAD_END_=_\n_=_BODY_BELOW_=_\n";
+  print $fh "==TITLE_START== title here ==TITLE_END==\n"
+    ."==TAG_START==\nfoo bar baz\n==TAG_END==\n"
+    ."==HEAD_START==\n==HEAD_END==\n==BODY_BELOW==\n";
   close($fh);
-  print "empty article created. edit ".$dir.$filename."\n";
+  open(FILE, $dir.$filename) or die "Can't open: $!";
+  binmode(FILE);
+  my $md5_value =  Digest::MD5->new->addfile(*FILE)->hexdigest;
+  close(FILE);
+  my $current_timestamp = &get_current_timestamp;
+  my $hist_content = retrieve $files->{hist};
+  $hist_content->{articles}->{$relational_path.$filename} =
+    {
+     created_at => $current_timestamp,
+     updated_at => $current_timestamp,
+     last_md5 => $md5_value
+    };
+  nstore $hist_content, $files->{hist};
+  print "empty article was created. edit ".$dir.$filename."\n";
 
 }
 
-## compile all articles
-sub compile_articles{
+sub search_all{
   # file search
   my $all_files = [];
   my $years = [];
@@ -221,7 +274,12 @@ sub compile_articles{
     }
     closedir($dh);
   }
+  return $all_files;
+}
+
+sub compile_articles{
   # compile
+  my $all_files = &search_all();
   my $tag_hash = {};
   foreach my $file (@$all_files){
     my @file_array = split('/',$file);
@@ -232,15 +290,18 @@ sub compile_articles{
       $content .= $_;
     }
     close($fh);
+    my ($body_above,$body_below) = split('==BODY_BELOW==',$content);
     my $title = 'NO TITLE';
-    if($content =~ /_\=_TITLE_START_\=_(.*?)_\=_TITLE_END_\=_/msg){
+    if($body_above =~ /==TITLE_START==(.*?)==TITLE_END==/msg){
       $title = $1;
+      $title =~ s/^\s*(.+?)\s*$/$1/msg;
     }
     my $tag_raw = '';
-    if($content =~ /_\=_TAG_START_\=_(.*?)_\=_TAG_END_\=_/msg){
+    if($body_above =~ /==TAG_START==(.*?)==TAG_END==/msg){
       $tag_raw = $1;
+      $tag_raw =~ s/^\s*(.+?)\s*$/$1/msg;
     }
-    my @tags = split(/\s/,$tag_raw);
+    my @tags = split(/ \/,/,$tag_raw);
     foreach my $tag (@tags){
       if(defined($tag_hash->{$tag})){
 	$tag_hash->{$tag} += 1;
@@ -248,12 +309,12 @@ sub compile_articles{
 	$tag_hash->{$tag} = 1;
       }
     }
-    my ($body_obove,$body_below) = split('_=_BODY_BELOW_=_',$content);
+
     # Specified markup language
-    $body_below =~ s/^==h([1-6]{1})\s{1}(.*?)[\r\n|\n|\r]/<h$1> $2 <\/h$1>/msg;
-    $body_below =~ s/^==hr/<hr>/msg;
-    $body_below =~ s/^==uls(.*?)==ule/<ul>$1<\/ul>/msg;
-    $body_below =~ s/==li\s{1}(.*?)([\r\n|\n|\r])/<li>$1<\/li>$2/msg;
+    $body_below =~ s/==h([1-6]{1}) (.*?)[\r\n|\n|\r]/<h$1>$2<\/h$1>/msg;
+    $body_below =~ s/==hr/<hr>/msg;
+    $body_below =~ s/==uls(.*?)==ule/<ul>$1<\/ul>/msg;
+    $body_below =~ s/==li (.*?)([\r\n|\n|\r])/<li>$1<\/li>$2/msg;
     $body_below =~ s/^==codes[\r\n|\n|\r](.*?)==codee/<pre><code>$1<\/code><\/pre>/msg;
   }
 }
