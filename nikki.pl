@@ -63,7 +63,7 @@ if($command eq 'init'){
   &make_nikki;
 }elsif($command eq 'rehash'){
   &rehash_db;
-}elsif($command eq 'compile'){
+}elsif($command eq 'gen'){
   &compile_articles;
 }else{
   print 'NIKKI - a simple diary authoring tool.
@@ -71,12 +71,12 @@ Usage: perl nikki.pl <command> <option>
  Commands:
   init    : Create diary project.
   new     : Create new article.
-  compile : Compile and generate static html file.
+  gen     : Compile and generate static html file.
   rehash  : ReOrg internal database.
  Example:
   $ perl nikki.pl init
   $ perl nikki.pl new
-  $ perl nikki.pl compile
+  $ perl nikki.pl gen
 ';
 }
 
@@ -512,7 +512,9 @@ sub compile_articles{
     $html =~ s/_=_UPDATED_AT_=_/$updated_at/;
     $html =~ s/_=_AUTHOR_=_/$author/;
 
-    open(my $fh_out,">",$dirs->{entry_dir}.$converted->{$entry}->{rel_path}.$converted->{$entry}->{filename});
+    my $output_file = $dirs->{entry_dir}.$converted->{$entry}->{rel_path}.$converted->{$entry}->{filename};
+    $output_file =~ s/\.nk$/\.html/;
+    open(my $fh_out,">",$output_file);
     print $fh_out $html;
     close($fh_out);
   }
