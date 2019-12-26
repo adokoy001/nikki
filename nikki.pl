@@ -338,7 +338,7 @@ sub search_all{
 sub rehash_db{
   my ($all_files,$all_files_relative) = &search_all();
   my $hist = retrieve $files->{hist};
-  foreach my $filename (sort {$b <=> $a} @$all_files_relative){
+  foreach my $filename (sort {$b cmp $a} @$all_files_relative){
     my $filename_full = $dirs->{article_dir}.$filename;
     if(defined($hist->{articles}->{$filename})){
       open(FILE, $filename_full) or die "Can't open: $!";
@@ -367,7 +367,7 @@ sub rehash_db{
       $hist->{articles}->{$filename}->{updated_at} = &get_current_timestamp();
     }
   }
-  foreach my $filename (sort {$b <=> $a} keys %{$hist->{articles}}){
+  foreach my $filename (sort {$b cmp $a} keys %{$hist->{articles}}){
     unless(-f $dirs->{article_dir}.$filename){
       print "NOTICE: Deleted file detected. Article info will be removed from DB.\n";
       delete $hist->{articles}->{$filename};
@@ -387,7 +387,7 @@ sub compile_articles{
   my $tag_related = {};
   my $archive = [];
   my $converted = {};
-  foreach my $file_rel (sort {$b cmp $a} @$all_files_relative){
+  foreach my $file_rel ( sort {$b cmp $a} @$all_files_relative){
     my $created_at = $hist->{articles}->{$file_rel}->{created_at};
     my $file = $dirs->{article_dir}.$file_rel;
     my @file_array = split('/',$file);
@@ -447,7 +447,7 @@ sub compile_articles{
     # Specified markup language
     $body_below =~ s/</&lt;/msg;
     $body_below =~ s/>/&gt;/msg;
-    $body_below =~ s/^==h([1-6]{1}) (.*?)$/<h$1>$2<\/h$1>$3/msg;
+    $body_below =~ s/^==h([1-6]{1}) (.*?)$/<h$1>$2<\/h$1>/msg;
     $body_below =~ s/^==hr$/<hr>/msg;
     $body_below =~ s/^==ul(.*?)ul==$/<ul>$1<\/ul>/msg;
     $body_below =~ s/==li (.*?)$/<li>$1<\/li>$2/msg;
@@ -461,8 +461,8 @@ sub compile_articles{
 
     $converted->{$file_rel} =
       {
-       rel_path => $hist->{articles}->{$file_rel},
-       filename => $hist->{articles}->{$file_rel},
+       rel_path => $hist->{articles}->{$file_rel}->{rel_path},
+       filename => $hist->{articles}->{$file_rel}->{filename},
        tags => \@tags,
        title => $title,
        summary => $summary,
@@ -491,7 +491,7 @@ sub compile_articles{
   while(<$fh>){$template_tags .= $_; }
   close($fh);
   
-  foreach my $entry (sort {$b <=> $a} keys %$converted){
+  foreach my $entry (sort {$b cmp $a} keys %{$converted}){
     unless(-d $converted->{$entry}->{rel_path}){
       mkpath($dirs->{entry_dir}.$converted->{$entry}->{rel_path});
     }
@@ -499,8 +499,8 @@ sub compile_articles{
     my $html = $template_base;
     my $title = $converted->{$entry}->{title};
     my $head = $converted->{$entry}->{head};
-    my $created_at = $converted->{$entry}->{created_at};
-    my $updated_at = $converted->{$entry}->{updated_at};
+    my $created_at = $hist->{articles}->{$entry}->{created_at};
+    my $updated_at = $hist->{articles}->{$entry}->{updated_at};
     my $author = $config->{author};
     
     my $content = $converted->{$entry}->{content};
@@ -512,8 +512,8 @@ sub compile_articles{
     $html =~ s/_=_UPDATED_AT_=_/$updated_at/;
     $html =~ s/_=_AUTHOR_=_/$author/;
 
-    open($fh,">",$dirs->{entry_dir},$entry);
-    print $fh $html;
-    close($fh);
+    open(my $fh_out,">",$dirs->{entry_dir}.$converted->{$entry}->{rel_path}.$converted->{$entry}->{filename});
+    print $fh_out $html;
+    close($fh_out);
   }
 }
