@@ -1,5 +1,6 @@
 use strict;
 use warnings;
+use utf8;
 use FindBin;
 use File::Path;
 use Digest::MD5 qw(md5_hex);
@@ -26,6 +27,8 @@ our $dirs =
    template_dir => $base_dir . 'etc/templates/',
    public_dir => $base_dir . 'public/',
    asset_dir => $base_dir . 'public/assets/',
+   entry_dir => $base_dir . 'public/entry/',
+   tags_dir => $base_dir . 'public/tags/',
   };
 
 our $files =
@@ -36,10 +39,11 @@ our $files =
    template_index => $dirs->{template_dir} . 'index.tmpl',
    template_archive => $dirs->{template_dir} . 'archive.tmpl',
    template_page => $dirs->{template_dir} . 'page.tmpl',
+   template_tags => $dirs->{template_dir} . 'tags.tmpl',
    };
 
 ## commands
-my $command = $ARGV[0] // 'none';
+my $command = $ARGV[0] // 'help';
 my $name = $ARGV[1] // 0;
 
 if($command eq 'init'){
@@ -57,8 +61,23 @@ if($command eq 'init'){
   print "Initialization Complete!\n";
 }elsif($command eq 'new'){
   &make_nikki;
-}elsif($command eq 'test'){
+}elsif($command eq 'rehash'){
+  &rehash_db;
+}elsif($command eq 'compile'){
   &compile_articles;
+}else{
+  print 'NIKKI - a simple diary authoring tool.
+Usage: perl nikki.pl <command> <option>
+ Commands:
+  init    : Create diary project.
+  new     : Create new article.
+  compile : Compile and generate static html file.
+  rehash  : ReOrg internal database.
+ Example:
+  $ perl nikki.pl init
+  $ perl nikki.pl new
+  $ perl nikki.pl compile
+';
 }
 
 
@@ -99,10 +118,15 @@ sub make_dirs{
   unless(-d $dirs->{asset_dir}){
     mkdir $dirs->{asset_dir} or die "Could not create $dirs->{asset_dir} : $!\n";
   }
+  unless(-d $dirs->{entry_dir}){
+    mkdir $dirs->{entry_dir} or die "Could not create $dirs->{entry_dir} : $!\n";
+  }
+  unless(-d $dirs->{tags_dir}){
+    mkdir $dirs->{tags_dir} or die "Could not create $dirs->{tags_dir} : $!\n";
+  }
 }
 
 ## get current timestamp
-
 sub get_current_timestamp {
   my ($second, $minute, $hour, $mday, $month, $year) = localtime;
   $month += 1;
@@ -116,6 +140,17 @@ sub get_current_timestamp {
   return $current_timestamp;
 }
 
+sub load_config{
+  open(my $fh, "<", $files->{config});
+  my $content = '';
+  while(<$fh>){$content .= $_;}
+  close($fh);
+  my $safe = Safe->new;
+  my $config = $safe->reval($content) or die "$!$@";
+  return $config;
+}
+
+
 ## make essential files
 sub make_init_files{
 
@@ -126,6 +161,9 @@ sub make_init_files{
       {
        site_name => 'SITE NAME',
        author => 'AUTHOR',
+       whats_new => 5,
+       document_root => '/',
+       deploy_to => undef,
       };
     ";
     open(my $fh, ">", $files->{config});
@@ -156,7 +194,11 @@ sub make_init_files{
     print
 	  $fh
 	  "<!DOCTYPE html>\n<html>\n<head>\n<title>_=_TITLE_=_</title>\n_=_HEAD_=_\n</head>\n"
-	  ."<body>\n_=_BODY_=_\n</body>\n</html>\n"
+	  ."<body>\n_=_BODY_=_\n<hr>\n"
+	  ."created at : _=_CREATED_AT_=_<br>"
+	  ."updated at : _=_UPDATED_AT_=_<br>"
+	  ."author : _=_AUTHOR_=_<br>"
+	  ."</body>\n</html>\n"
 	 ;
     close($fh);
   }
@@ -194,6 +236,17 @@ sub make_init_files{
     close($fh);
   }
 
+  if(-f $files->{template_tags}){
+    print "Already Exists. Skipped.\n";
+  }else{
+    open(my $fh, ">", $files->{template_tags}) or die "$!\n";
+    print
+	  $fh
+	  "<h1>_=_TAG_NAME_=_<h1>\n_=_RELATED_CONTENT_=_",
+	 ;
+    close($fh);
+  }
+
 }
 
 ## make empty NIKKI
@@ -222,9 +275,10 @@ sub make_nikki{
     }
   }
   open(my $fh, ">", $dir.$filename) or die "$!\n";
-  print $fh "==TITLE_START== title here ==TITLE_END==\n"
-    ."==TAG_START==\nfoo bar baz\n==TAG_END==\n"
-    ."==HEAD_START==\n==HEAD_END==\n==BODY_BELOW==\n";
+  print $fh "==TITLE_START== title here ==TITLE_END==\n\n"
+    ."==SUMMARY_START==\nsummarize this article.\n==SUMMARY_END==\n\n"
+    ."==TAG_START==\nfoo bar baz anything\n==TAG_END==\n\n"
+    ."==HEAD_START==\n==HEAD_END==\n\n==BODY_BELOW==\n";
   close($fh);
   open(FILE, $dir.$filename) or die "Can't open: $!";
   binmode(FILE);
@@ -234,6 +288,8 @@ sub make_nikki{
   my $hist_content = retrieve $files->{hist};
   $hist_content->{articles}->{$relational_path.$filename} =
     {
+     rel_path => $relational_path,
+     filename => $filename,
      created_at => $current_timestamp,
      updated_at => $current_timestamp,
      last_md5 => $md5_value
@@ -246,17 +302,18 @@ sub make_nikki{
 sub search_all{
   # file search
   my $all_files = [];
+  my $all_files_relative = [];
   my $years = [];
   my $year_month = [];
   opendir(my $dh, $dirs->{article_dir}) or die "$!";
   while(my $name = readdir $dh){
     if($name =~ /^[1-9]{1}[0-9]{3}$/g){
-      push(@$years,$dirs->{article_dir}.$name);
+      push(@$years,$name);
     }
   }
   closedir($dh);
   foreach my $year_dir (@$years){
-    opendir(my $dh, $year_dir) or die "$1\n";
+    opendir(my $dh, $dirs->{article_dir}.$year_dir) or die "$1\n";
     while(my $name = readdir $dh){
       if($name =~ /^[0-9]{2}$/g){
 	push(@$year_month,$year_dir.'/'.$name);
@@ -266,22 +323,73 @@ sub search_all{
   }
 
   foreach my $year_month_dir (@$year_month){
-    opendir(my $dh, $year_month_dir) or die "$1\n";
+    opendir(my $dh, $dirs->{article_dir}.$year_month_dir) or die "$1\n";
     while(my $name = readdir $dh){
       if($name =~ /.*?\.nk$/g){
-	push(@$all_files,$year_month_dir.'/'.$name);
+	push(@$all_files,$dirs->{article_dir}.$year_month_dir.'/'.$name);
+	push(@$all_files_relative,$year_month_dir.'/'.$name);
       }
     }
     closedir($dh);
   }
-  return $all_files;
+  return ($all_files,$all_files_relative);
+}
+
+sub rehash_db{
+  my ($all_files,$all_files_relative) = &search_all();
+  my $hist = retrieve $files->{hist};
+  foreach my $filename (sort {$b <=> $a} @$all_files_relative){
+    my $filename_full = $dirs->{article_dir}.$filename;
+    if(defined($hist->{articles}->{$filename})){
+      open(FILE, $filename_full) or die "Can't open: $!";
+      binmode(FILE);
+      my $md5_value = Digest::MD5->new->addfile(*FILE)->hexdigest;
+      close(FILE);
+      if($md5_value ne $hist->{articles}->{$filename}->{last_md5}){
+	print "NOTICE: Modified article found. $filename info will be updated.\n";
+	$hist->{articles}->{$filename}->{last_md5} = $md5_value;
+	$hist->{articles}->{$filename}->{updated_at} = &get_current_timestamp();
+      }
+    }else{
+      print "NOTICE: Unregistered article found. $filename info will be created.\n";
+      open(FILE, $filename_full) or die "Can't open: $!";
+      binmode(FILE);
+      my $md5_value = Digest::MD5->new->addfile(*FILE)->hexdigest;
+      close(FILE);
+      my @filepath_array = split('/',$filename);
+      my $filename_only = $filepath_array[$#filepath_array];
+      pop(@filepath_array);
+      my $relpath_only = join('/',@filepath_array);
+      $hist->{articles}->{$filename}->{rel_path} = $relpath_only;
+      $hist->{articles}->{$filename}->{filename} = $filename_only;
+      $hist->{articles}->{$filename}->{last_md5} = $md5_value;
+      $hist->{articles}->{$filename}->{created_at} = &get_current_timestamp();
+      $hist->{articles}->{$filename}->{updated_at} = &get_current_timestamp();
+    }
+  }
+  foreach my $filename (sort {$b <=> $a} keys %{$hist->{articles}}){
+    unless(-f $dirs->{article_dir}.$filename){
+      print "NOTICE: Deleted file detected. Article info will be removed from DB.\n";
+      delete $hist->{articles}->{$filename};
+    }
+  }
+  nstore $hist, $files->{hist};
+  print "Complete.\n";
 }
 
 sub compile_articles{
   # compile
-  my $all_files = &search_all();
-  my $tag_hash = {};
-  foreach my $file (@$all_files){
+  &rehash_db();
+  my $hist = retrieve $files->{hist};
+  my ($all_files,$all_files_relative) = &search_all();
+  my $config = &load_config();
+  my $tag_counter = {};
+  my $tag_related = {};
+  my $archive = [];
+  my $converted = {};
+  foreach my $file_rel (sort {$b cmp $a} @$all_files_relative){
+    my $created_at = $hist->{articles}->{$file_rel}->{created_at};
+    my $file = $dirs->{article_dir}.$file_rel;
     my @file_array = split('/',$file);
     my $filename = $file_array[$#file_array];
     open(my $fh,"<",$file);
@@ -296,6 +404,16 @@ sub compile_articles{
       $title = $1;
       $title =~ s/^\s*(.+?)\s*$/$1/msg;
     }
+    my $summary = 'NO SUMMARY';
+    if($body_above =~ /==SUMMARY_START==(.*?)==SUMMARY_END==/msg){
+      $summary = $1;
+      $summary =~ s/^\s*(.+?)\s*$/$1/msg;
+    }
+    my $head = '';
+    if($body_above =~ /==HEAD_START==(.*?)==HEAD_END==/msg){
+      $head = $1;
+      $head =~ s/^\s*(.+?)\s*$/$1/msg;
+    }
     my $tag_raw = '';
     if($body_above =~ /==TAG_START==(.*?)==TAG_END==/msg){
       $tag_raw = $1;
@@ -303,18 +421,99 @@ sub compile_articles{
     }
     my @tags = split(/ \/,/,$tag_raw);
     foreach my $tag (@tags){
-      if(defined($tag_hash->{$tag})){
-	$tag_hash->{$tag} += 1;
+      if(defined($tag_counter->{$tag})){
+	$tag_counter->{$tag} += 1;
       }else{
-	$tag_hash->{$tag} = 1;
+	$tag_counter->{$tag} = 1;
+      }
+      if(defined($tag_related->{$tag})){
+	push(@{$tag_related->{$tag}},
+	     created_at => $created_at,
+	     title => $title,
+	     path => $config->{document_root}.'entry/'.$file_rel,
+	    );
+      }else{
+	$tag_related->{$tag} = [];
+	push(@{$tag_related->{$tag}},
+	     created_at => $created_at,
+	     title => $title,
+	     path => $config->{document_root}.'entry/'.$file_rel,
+	    );
       }
     }
 
+    push(@$archive,{created_at => $created_at, title => $title, path => $config->{document_root}.'entry/'.$file_rel});
+
     # Specified markup language
-    $body_below =~ s/==h([1-6]{1}) (.*?)[\r\n|\n|\r]/<h$1>$2<\/h$1>/msg;
-    $body_below =~ s/==hr/<hr>/msg;
-    $body_below =~ s/==uls(.*?)==ule/<ul>$1<\/ul>/msg;
-    $body_below =~ s/==li (.*?)([\r\n|\n|\r])/<li>$1<\/li>$2/msg;
-    $body_below =~ s/^==codes[\r\n|\n|\r](.*?)==codee/<pre><code>$1<\/code><\/pre>/msg;
+    $body_below =~ s/</&lt;/msg;
+    $body_below =~ s/>/&gt;/msg;
+    $body_below =~ s/^==h([1-6]{1}) (.*?)$/<h$1>$2<\/h$1>$3/msg;
+    $body_below =~ s/^==hr$/<hr>/msg;
+    $body_below =~ s/^==ul(.*?)ul==$/<ul>$1<\/ul>/msg;
+    $body_below =~ s/==li (.*?)$/<li>$1<\/li>$2/msg;
+    $body_below =~ s/^==precode$(.*?)^precode==$/<pre><code>$1<\/code><\/pre>/msg;
+    $body_below =~ s/==code (.*?) code==/<code>$1<\/code>/msg;
+    $body_below =~ s/==a (.*?) ==href (.*?) a==/<a href=\"$2\">$1<\/a>/msg;
+    $body_below =~ s/==img (.*?) img==/<img src=\"$1\">/msg;
+    $body_below =~ s/([\r\n|\n|\r]{1,})([^<>]+?)([\r\n|\n|\r]{2}|\Z)/$1<p>$2<\/p>$3/msg;
+    $body_below =~ s/([\r\n|\n|\r]{1,})([^<>]+?)([\r\n|\n|\r]{2}|\Z)/$1<p>$2<\/p>$3/msg;
+    $body_below =~ s/<p>([\r\n|\n|\r]{1,})<\/p>/$1/msg;
+
+    $converted->{$file_rel} =
+      {
+       rel_path => $hist->{articles}->{$file_rel},
+       filename => $hist->{articles}->{$file_rel},
+       tags => \@tags,
+       title => $title,
+       summary => $summary,
+       head => $head,
+       content => $body_below,
+      };
+  }
+  my $template_base = '';
+  open(my $fh,"<",$files->{template_base});
+  while(<$fh>){$template_base .= $_; }
+  close($fh);
+  my $template_index;
+  open($fh,"<",$files->{template_index});
+  while(<$fh>){$template_index .= $_; }
+  close($fh);
+  my $template_page = '';
+  open($fh,"<",$files->{template_page});
+  while(<$fh>){$template_page .= $_; }
+  close($fh);
+  my $template_archive = '';
+  open($fh,"<",$files->{template_archive});
+  while(<$fh>){$template_archive .= $_; }
+  close($fh);
+  my $template_tags = '';
+  open($fh,"<",$files->{template_tags});
+  while(<$fh>){$template_tags .= $_; }
+  close($fh);
+  
+  foreach my $entry (sort {$b <=> $a} keys %$converted){
+    unless(-d $converted->{$entry}->{rel_path}){
+      mkpath($dirs->{entry_dir}.$converted->{$entry}->{rel_path});
+    }
+    my $body = $template_page;
+    my $html = $template_base;
+    my $title = $converted->{$entry}->{title};
+    my $head = $converted->{$entry}->{head};
+    my $created_at = $converted->{$entry}->{created_at};
+    my $updated_at = $converted->{$entry}->{updated_at};
+    my $author = $config->{author};
+    
+    my $content = $converted->{$entry}->{content};
+    $body =~ s/_=_CONTENT_=_/$content/;
+    $html =~ s/_=_TITLE_=_/$title/;
+    $html =~ s/_=_HEAD_=_/$head/;
+    $html =~ s/_=_BODY_=_/$body/;
+    $html =~ s/_=_CREATED_AT_=_/$created_at/;
+    $html =~ s/_=_UPDATED_AT_=_/$updated_at/;
+    $html =~ s/_=_AUTHOR_=_/$author/;
+
+    open($fh,">",$dirs->{entry_dir},$entry);
+    print $fh $html;
+    close($fh);
   }
 }
