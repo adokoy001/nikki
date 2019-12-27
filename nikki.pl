@@ -207,7 +207,7 @@ sub make_init_files{
     print
 	  $fh
 	  "<!DOCTYPE html>\n<html>\n<head>\n<title>_=_TITLE_=_</title>\n_=_HEAD_=_\n</head>\n"
-	  ."<body>\n_=_BODY_=_\n</body>\n</html>\n"
+	  ."<body><a href=\"/tags.html\">TAG LIST<a><hr>\n_=_BODY_=_\n</body>\n</html>\n"
 	 ;
     close($fh);
   }
@@ -641,7 +641,7 @@ sub compile_articles{
   $html_tag_index =~ s/_=_TITLE_=_/TAG LIST/;
   $html_tag_index =~ s/_=_HEAD_=_//;
   $html_tag_index =~ s/_=_BODY_=_/$body_tag_index/;
-  open(my $fh_tag_index,">",$dirs->{public_dir}.'tags.index');
+  open(my $fh_tag_index,">",$dirs->{public_dir}.'tags.html');
   print $fh_tag_index $html_tag_index;
   close($fh_tag_index);
   print "Create Tag Page: OK\n";
