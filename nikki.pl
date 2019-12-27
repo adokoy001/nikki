@@ -207,7 +207,8 @@ sub make_init_files{
     print
 	  $fh
 	  "<!DOCTYPE html>\n<html>\n<head>\n<title>_=_TITLE_=_</title>\n_=_HEAD_=_\n</head>\n"
-	  ."<body><a href=\"/tags.html\">TAG LIST<a><hr>\n_=_BODY_=_\n</body>\n</html>\n"
+	  ."<body><a href=\"/\">TOP</a> | <a href=\"/tags.html\">TAG LIST<a> | <a href=\"/archive.html\">ARCHIVES</a>\n"
+	  ."<hr>\n_=_BODY_=_\n</body>\n</html>\n"
 	 ;
     close($fh);
   }
@@ -258,7 +259,7 @@ sub make_init_files{
     open(my $fh, ">", $files->{template_tags}) or die "$!\n";
     print
 	  $fh
-	  "<h1>_=_TAG_NAME_=_</h1>\n_=_RELATED_CONTENT_=_",
+	  "<h1>TAG: _=_TAG_NAME_=_</h1><hr>\n_=_RELATED_CONTENT_=_",
 	 ;
     close($fh);
   }
