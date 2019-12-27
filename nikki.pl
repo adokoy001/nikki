@@ -140,6 +140,16 @@ sub get_current_timestamp {
   return $current_timestamp;
 }
 
+## escape_html
+sub escape_html {
+  my $input = shift;
+  $input =~ s/&/&amp;/msg;
+  $input =~ s/</&lt;/msg;
+  $input =~ s/>/&gt;/msg;
+  $input =~ s/"/&quot;/msg;
+  return $input;
+}
+
 sub load_config{
   open(my $fh, "<", $files->{config});
   my $content = '';
@@ -194,11 +204,7 @@ sub make_init_files{
     print
 	  $fh
 	  "<!DOCTYPE html>\n<html>\n<head>\n<title>_=_TITLE_=_</title>\n_=_HEAD_=_\n</head>\n"
-	  ."<body>\n_=_BODY_=_\n<hr>\n"
-	  ."created at : _=_CREATED_AT_=_<br>"
-	  ."updated at : _=_UPDATED_AT_=_<br>"
-	  ."author : _=_AUTHOR_=_<br>"
-	  ."</body>\n</html>\n"
+	  ."<body>\n_=_BODY_=_\n</body>\n</html>\n"
 	 ;
     close($fh);
   }
@@ -231,7 +237,14 @@ sub make_init_files{
     open(my $fh, ">", $files->{template_page}) or die "$!\n";
     print
 	  $fh
-	  "_=_CONTENT_=_",
+	  "_=_CONTENT_=_\n"
+	  ."<hr><section>_=_RELATED_TAGS_=_</section>\n"
+	  ."<section>prev:_=_PREVIOUS_=_ next:_=_NEXT_=_</section>\n"
+	  ."<section>\n"
+	  ."created at : _=_CREATED_AT_=_<br>\n"
+	  ."updated at : _=_UPDATED_AT_=_<br>\n"
+	  ."author : _=_AUTHOR_=_<br>\n"
+	  ."</section>\n"
 	 ;
     close($fh);
   }
@@ -374,7 +387,7 @@ sub rehash_db{
     }
   }
   nstore $hist, $files->{hist};
-  print "Complete.\n";
+  print "Rehash DB: Complete.\n";
 }
 
 sub compile_articles{
@@ -383,10 +396,10 @@ sub compile_articles{
   my $hist = retrieve $files->{hist};
   my ($all_files,$all_files_relative) = &search_all();
   my $config = &load_config();
-  my $tag_counter = {};
-  my $tag_related = {};
+  my $tag_info = {};
   my $archive = [];
   my $converted = {};
+  ## compile all articles.
   foreach my $file_rel ( sort {$b cmp $a} @$all_files_relative){
     my $created_at = $hist->{articles}->{$file_rel}->{created_at};
     my $file = $dirs->{article_dir}.$file_rel;
@@ -398,6 +411,8 @@ sub compile_articles{
       $content .= $_;
     }
     close($fh);
+    my $tmp_path = $config->{document_root}.'entry/'.$file_rel;
+    $tmp_path =~ s/\.nk$/\.html/;
     my ($body_above,$body_below) = split('==BODY_BELOW==',$content);
     my $title = 'NO TITLE';
     if($body_above =~ /==TITLE_START==(.*?)==TITLE_END==/msg){
@@ -414,35 +429,39 @@ sub compile_articles{
       $head = $1;
       $head =~ s/^\s*(.+?)\s*$/$1/msg;
     }
-    my $tag_raw = '';
-    if($body_above =~ /==TAG_START==(.*?)==TAG_END==/msg){
+    my $tag_raw = 'NOTAG';
+    my $new_body_above = $body_above; # buggy
+    if($new_body_above =~ /==TAG_START==(.*?)==TAG_END==/msg){
       $tag_raw = $1;
       $tag_raw =~ s/^\s*(.+?)\s*$/$1/msg;
     }
-    my @tags = split(/ \/,/,$tag_raw);
+    my @tags = split(/ /,$tag_raw);
     foreach my $tag (@tags){
-      if(defined($tag_counter->{$tag})){
-	$tag_counter->{$tag} += 1;
+      my $tag_hex = md5_hex($tag . md5_hex($tag) . $tag);
+      my $tag_file_path = $config->{document_root}.'tags/'.$tag_hex.'.html';
+      my $tag_file_real_path = $dirs->{tags_dir}.$tag_hex.'.html';
+      $tag_info->{$tag}->{path} = $tag_file_path;
+      $tag_info->{$tag}->{real_path} = $tag_file_real_path;
+      if(defined($tag_info->{$tag}) and defined($tag_info->{$tag}->{counter})){
+	$tag_info->{$tag}->{counter} += 1;
       }else{
-	$tag_counter->{$tag} = 1;
+	$tag_info->{$tag}->{counter} = 1;
       }
-      if(defined($tag_related->{$tag})){
-	push(@{$tag_related->{$tag}},
+      if(defined($tag_info->{$tag}) and defined($tag_info->{$tag}->{related})){
+	push(@{$tag_info->{$tag}->{related}},
 	     created_at => $created_at,
 	     title => $title,
 	     path => $config->{document_root}.'entry/'.$file_rel,
 	    );
       }else{
-	$tag_related->{$tag} = [];
-	push(@{$tag_related->{$tag}},
+	$tag_info->{$tag}->{related} = [];
+	push(@{$tag_info->{$tag}->{related}},
 	     created_at => $created_at,
 	     title => $title,
 	     path => $config->{document_root}.'entry/'.$file_rel,
 	    );
       }
     }
-
-    push(@$archive,{created_at => $created_at, title => $title, path => $config->{document_root}.'entry/'.$file_rel});
 
     # Specified markup language
     $body_below =~ s/</&lt;/msg;
@@ -463,12 +482,29 @@ sub compile_articles{
       {
        rel_path => $hist->{articles}->{$file_rel}->{rel_path},
        filename => $hist->{articles}->{$file_rel}->{filename},
+       www_path => $tmp_path,
        tags => \@tags,
        title => $title,
        summary => $summary,
        head => $head,
        content => $body_below,
       };
+  }
+  my $tmp_prev = undef;
+  my $tmp_prev_title = undef;
+  my $tmp_next = undef;
+  my $tmp_next_title = undef;
+  foreach my $entry (sort {$a cmp $b} keys %{$converted}){
+    $converted->{$entry}->{prev} = $tmp_prev;
+    $converted->{$entry}->{prev_title} = $tmp_prev_title;
+    $tmp_prev = $converted->{$entry}->{www_path};
+    $tmp_prev_title = $converted->{$entry}->{title};
+  }
+  foreach my $entry (sort {$b cmp $a} keys %{$converted}){
+    $converted->{$entry}->{next} = $tmp_next;
+    $converted->{$entry}->{next_title} = $tmp_next_title;
+    $tmp_next = $converted->{$entry}->{www_path};
+    $tmp_next_title = $converted->{$entry}->{title};
   }
   my $template_base = '';
   open(my $fh,"<",$files->{template_base});
@@ -490,32 +526,71 @@ sub compile_articles{
   open($fh,"<",$files->{template_tags});
   while(<$fh>){$template_tags .= $_; }
   close($fh);
-  
+
   foreach my $entry (sort {$b cmp $a} keys %{$converted}){
     unless(-d $converted->{$entry}->{rel_path}){
       mkpath($dirs->{entry_dir}.$converted->{$entry}->{rel_path});
     }
+    my $output_file = $dirs->{entry_dir}.$converted->{$entry}->{rel_path}.$converted->{$entry}->{filename};
     my $body = $template_page;
     my $html = $template_base;
-    my $title = $converted->{$entry}->{title};
+    my $title = &escape_html($converted->{$entry}->{title});
     my $head = $converted->{$entry}->{head};
+    my $summary = &escape_html($converted->{$entry}->{summary});
+    my $prev = 'NO ENTRY';
+    my $next = 'NO ENTRY';
+    if(defined($converted->{$entry}->{prev})){
+      $prev = "<a href=\"".$converted->{$entry}->{prev}."\">".&escape_html($converted->{$entry}->{prev_title})."</a>";
+    }
+    if(defined($converted->{$entry}->{next})){
+      $next = "<a href=\"".$converted->{$entry}->{next}."\">".&escape_html($converted->{$entry}->{next_title})."</a>";
+    }
+    my $tmp_tags = $converted->{$entry}->{tags};
+    my $tmp_tag_html = '';
+    $tmp_tag_html .= "<ul>\n";
+    foreach my $tmp_tag (@$tmp_tags){
+      $tmp_tag_html .= "<li> <a href=\"".$tag_info->{$tmp_tag}->{path}."\">".&escape_html($tmp_tag)."</a></li>\n";
+    }
+    $tmp_tag_html .= "</ul>\n";
     my $created_at = $hist->{articles}->{$entry}->{created_at};
     my $updated_at = $hist->{articles}->{$entry}->{updated_at};
     my $author = $config->{author};
-    
     my $content = $converted->{$entry}->{content};
     $body =~ s/_=_CONTENT_=_/$content/;
+    $body =~ s/_=_RELATED_TAGS_=_/$tmp_tag_html/;
+    $body =~ s/_=_PREVIOUS_=_/$prev/;
+    $body =~ s/_=_NEXT_=_/$next/;
+    $body =~ s/_=_CREATED_AT_=_/$created_at/;
+    $body =~ s/_=_UPDATED_AT_=_/$updated_at/;
+    $body =~ s/_=_AUTHOR_=_/$author/;
+
     $html =~ s/_=_TITLE_=_/$title/;
     $html =~ s/_=_HEAD_=_/$head/;
     $html =~ s/_=_BODY_=_/$body/;
-    $html =~ s/_=_CREATED_AT_=_/$created_at/;
-    $html =~ s/_=_UPDATED_AT_=_/$updated_at/;
-    $html =~ s/_=_AUTHOR_=_/$author/;
 
-    my $output_file = $dirs->{entry_dir}.$converted->{$entry}->{rel_path}.$converted->{$entry}->{filename};
     $output_file =~ s/\.nk$/\.html/;
     open(my $fh_out,">",$output_file);
     print $fh_out $html;
     close($fh_out);
+    push(@$archive,{created_at => $created_at, updated_at => $updated_at, title => $title, summary => $summary, www_path => $converted->{$entry}->{www_path}});
   }
+  ## compile archive page
+  my $body_archive = $template_archive;
+  my $html_archive = $template_base;
+  my $output_file_archive = $dirs->{public_dir}.'archive.html';
+  my $archive_list = '';
+  $archive_list .= "<ul>\n";
+  foreach my $entry (@$archive){
+    $archive_list .= "<li>".$entry->{created_at}." : <a href=\"".$entry->{www_path}."\">".$entry->{title}."</a></li>\n";
+  }
+  $archive_list .= "</ul>\n";
+  $body_archive =~ s/_=_ARCHIVE_=_/$archive_list/;
+  $html_archive =~ s/_=_TITLE_=_/Archive/;
+  $html_archive =~ s/_=_HEAD_=_//;
+  $html_archive =~ s/_=_BODY_=_/$body_archive/;
+  open(my $fh_archive,">",$output_file_archive);
+  print $fh_archive $html_archive;
+  close($fh_archive);
+  ## compile tag page
+  
 }
