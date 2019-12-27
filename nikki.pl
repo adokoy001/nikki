@@ -79,7 +79,7 @@ Usage: perl nikki.pl <command>
   $ perl nikki.pl gen
 How to Update:
  All You Need Is Execute This.
-  $ wget -o nikki.pl https://raw.githubusercontent.com/adokoy001/nikki/master/nikki.pl
+  $ rm nikki.pl && wget https://raw.githubusercontent.com/adokoy001/nikki/master/nikki.pl
 ';
 }
 
