@@ -683,7 +683,7 @@ sub compile_articles{
       $updates .= '<li>'.$entry->{created_at}
 	.': <a href="'.$entry->{www_path}
 	.'">'.&escape_html($entry->{title})
-	."</a> - ".&escape_html($entry->{summary})." - </li>\n";
+	."</a> - ".$entry->{summary}." - </li>\n";
     }
   }
   $updates .= "<ul>\n";
