@@ -460,7 +460,7 @@ sub compile_articles{
 	     {
 	      created_at => $created_at,
 	      title => $title,
-	      path => $config->{document_root}.'entry/'.$file_rel,
+	      path => $tmp_path,
 	     }
 	    );
       }else{
@@ -469,7 +469,7 @@ sub compile_articles{
 	     {
 	      created_at => $created_at,
 	      title => $title,
-	      path => $config->{document_root}.'entry/'.$file_rel,
+	      path => $tmp_path,
 	     }
 	    );
       }
