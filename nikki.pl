@@ -143,11 +143,15 @@ sub get_current_timestamp {
 ## escape_html
 sub escape_html {
   my $input = shift;
-  $input =~ s/&/&amp;/msg;
-  $input =~ s/</&lt;/msg;
-  $input =~ s/>/&gt;/msg;
-  $input =~ s/"/&quot;/msg;
-  return $input;
+  if(defined($input) and $input ne ''){
+    $input =~ s/&/&amp;/msg;
+    $input =~ s/</&lt;/msg;
+    $input =~ s/>/&gt;/msg;
+    $input =~ s/"/&quot;/msg;
+    return $input;
+  }else{
+    return '';
+  }
 }
 
 sub load_config{
@@ -171,9 +175,8 @@ sub make_init_files{
       {
        site_name => 'SITE NAME',
        author => 'AUTHOR',
-       whats_new => 5,
+       whats_new => 10,
        document_root => '/',
-       deploy_to => undef,
       };
     ";
     open(my $fh, ">", $files->{config});
@@ -255,7 +258,7 @@ sub make_init_files{
     open(my $fh, ">", $files->{template_tags}) or die "$!\n";
     print
 	  $fh
-	  "<h1>_=_TAG_NAME_=_<h1>\n_=_RELATED_CONTENT_=_",
+	  "<h1>_=_TAG_NAME_=_</h1>\n_=_RELATED_CONTENT_=_",
 	 ;
     close($fh);
   }
@@ -392,10 +395,15 @@ sub rehash_db{
 
 sub compile_articles{
   # compile
+  print "Starting compile and generate html files.\n";
   &rehash_db();
+  print "Rehash Internal DB: OK.\n";
   my $hist = retrieve $files->{hist};
+  print "Load Internal DB: OK.\n";
   my ($all_files,$all_files_relative) = &search_all();
+  print "Search All entries: OK.\n";
   my $config = &load_config();
+  print "Load Config: OK.\n";
   my $tag_info = {};
   my $archive = [];
   my $converted = {};
@@ -449,16 +457,20 @@ sub compile_articles{
       }
       if(defined($tag_info->{$tag}) and defined($tag_info->{$tag}->{related})){
 	push(@{$tag_info->{$tag}->{related}},
-	     created_at => $created_at,
-	     title => $title,
-	     path => $config->{document_root}.'entry/'.$file_rel,
+	     {
+	      created_at => $created_at,
+	      title => $title,
+	      path => $config->{document_root}.'entry/'.$file_rel,
+	     }
 	    );
       }else{
 	$tag_info->{$tag}->{related} = [];
 	push(@{$tag_info->{$tag}->{related}},
-	     created_at => $created_at,
-	     title => $title,
-	     path => $config->{document_root}.'entry/'.$file_rel,
+	     {
+	      created_at => $created_at,
+	      title => $title,
+	      path => $config->{document_root}.'entry/'.$file_rel,
+	     }
 	    );
       }
     }
@@ -490,6 +502,8 @@ sub compile_articles{
        content => $body_below,
       };
   }
+
+  print "Converting to HTML: OK.\n";
   my $tmp_prev = undef;
   my $tmp_prev_title = undef;
   my $tmp_next = undef;
@@ -506,6 +520,7 @@ sub compile_articles{
     $tmp_next = $converted->{$entry}->{www_path};
     $tmp_next_title = $converted->{$entry}->{title};
   }
+  print "PREVIOUS and NEXT Indexing: OK.\n";
   my $template_base = '';
   open(my $fh,"<",$files->{template_base});
   while(<$fh>){$template_base .= $_; }
@@ -574,6 +589,7 @@ sub compile_articles{
     close($fh_out);
     push(@$archive,{created_at => $created_at, updated_at => $updated_at, title => $title, summary => $summary, www_path => $converted->{$entry}->{www_path}});
   }
+  print "Create All Article HTML files: OK\n";
   ## compile archive page
   my $body_archive = $template_archive;
   my $html_archive = $template_base;
@@ -591,6 +607,69 @@ sub compile_articles{
   open(my $fh_archive,">",$output_file_archive);
   print $fh_archive $html_archive;
   close($fh_archive);
+  print "Create Archive Page: OK\n";
   ## compile tag page
-  
+  my $body_tag_index = '';
+  my $html_tag_index = $template_base;
+  $body_tag_index .= "<h1>TAG LIST</h1>\n<ul>\n";
+  foreach my $tmp_tag (sort keys %$tag_info){
+    my $tag_link = $tag_info->{$tmp_tag}->{path};
+    my $tag_real_path = $tag_info->{$tmp_tag}->{real_path};
+    my $tag_counter = $tag_info->{$tmp_tag}->{counter};
+    $body_tag_index .= "<li><a href=\"".$tag_link."\">".&escape_html($tmp_tag)."(".$tag_counter.")"."</a></li>\n";
+    my $tag_related = $tag_info->{$tmp_tag}->{related};
+    my $body = $template_tags;
+    my $html = $template_base;
+    my $related_list = "<ul>\n";
+    foreach my $entry (@$tag_related){
+      $related_list .= '<li>'.$entry->{created_at}.': <a href="'.$entry->{path}.'">'
+	.&escape_html($entry->{title})."</a></li>\n";
+    }
+    $related_list .= "<ul>\n";
+    my $tag_name_escaped = &escape_html($tmp_tag);
+    my $html_title = 'Related content : ' . &escape_html($tmp_tag);
+    $body =~ s/_=_TAG_NAME_=_/$tag_name_escaped/;
+    $body =~ s/_=_RELATED_CONTENT_=_/$related_list/;
+    $html =~ s/_=_HEAD_=_//;
+    $html =~ s/_=_TITLE_=_/$html_title/;
+    $html =~ s/_=_BODY_=_/$body/;
+    open(my $fh_tags, ">", $tag_info->{$tmp_tag}->{real_path});
+    print $fh_tags $html;
+    close($html);
+  }
+  $body_tag_index .= "</ul>\n";
+  $html_tag_index =~ s/_=_TITLE_=_/TAG LIST/;
+  $html_tag_index =~ s/_=_HEAD_=_//;
+  $html_tag_index =~ s/_=_BODY_=_/$body_tag_index/;
+  open(my $fh_tag_index,">",$dirs->{public_dir}.'tags.index');
+  print $fh_tag_index $html_tag_index;
+  close($fh_tag_index);
+  print "Create Tag Page: OK\n";
+  ## compile index
+  my $body_index = $template_index;
+  my $html_index = $template_base;
+  my $updates = "<ul>\n";
+  my $counter = 0;
+  foreach my $entry (@$archive){
+    $counter++;
+    if($counter > $config->{whats_new}){
+      last;
+    }else{
+      $updates .= '<li>'.$entry->{created_at}
+	.': <a href="'.$entry->{www_path}
+	.'">'.&escape_html($entry->{title})
+	."</a> - ".&escape_html($entry->{summary})." - </li>\n";
+    }
+  }
+  $updates .= "<ul>\n";
+  my $site_name = $config->{site_name};
+  $body_index =~ s/_=_UPDATES_=_/$updates/;
+  $html_index =~ s/_=_TITLE_=_/$site_name/;
+  $html_index =~ s/_=_HEAD_=_//;
+  $html_index =~ s/_=_BODY_=_/$body_index/;
+  open(my $fh_index, ">", $dirs->{public_dir}.'index.html');
+  print $fh_index $html_index;
+  close($fh_index);
+  print "Create index.html: OK.\n";
+  print "COMPLETED!\n";
 }
