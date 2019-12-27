@@ -67,7 +67,7 @@ if($command eq 'init'){
   &compile_articles;
 }else{
   print 'NIKKI - a simple diary authoring tool.
-Usage: perl nikki.pl <command> <option>
+Usage: perl nikki.pl <command>
  Commands:
   init    : Create diary project.
   new     : Create new article.
@@ -77,6 +77,9 @@ Usage: perl nikki.pl <command> <option>
   $ perl nikki.pl init
   $ perl nikki.pl new
   $ perl nikki.pl gen
+How to Update:
+ All You Need Is Execute This.
+  $ wget -o nikki.pl https://raw.githubusercontent.com/adokoy001/nikki/master/nikki.pl
 ';
 }
 
@@ -168,8 +171,21 @@ sub load_config{
 ## make essential files
 sub make_init_files{
 
+  if(-f $base_dir.'.gitignore'){
+    print ".gitignore Already Exists. Development environment? Skipped.\n";
+  }else{
+    my $gitignore = "
+README.md
+nikki.pl
+public/
+    ";
+    open(my $fh, ">", $base_dir.'.gitignore');
+    print $fh $gitignore;
+    close($fh);
+  }
+
   if(-f $files->{config}){
-    print "Already Exists. Skipped.\n";
+    print "Config File Already Exists. Skipped.\n";
   }else{
     my $config_init = "
       {
@@ -185,7 +201,7 @@ sub make_init_files{
   }
 
   if(-f $files->{hist}){
-    print "Already Exists. Skipped.\n";
+    print "Internal DB Already Exists. Skipped.\n";
   }else{
     my $current_timestamp = &get_current_timestamp();
     my $hist_init =
@@ -201,7 +217,7 @@ sub make_init_files{
   }
 
   if(-f $files->{template_base}){
-    print "Already Exists. Skipped.\n";
+    print "Base Template Already Exists. Skipped.\n";
   }else{
     open(my $fh, ">", $files->{template_base}) or die "$!\n";
     print
@@ -214,7 +230,7 @@ sub make_init_files{
   }
 
   if(-f $files->{template_index}){
-    print "Already Exists. Skipped.\n";
+    print "Index Template Already Exists. Skipped.\n";
   }else{
     open(my $fh, ">", $files->{template_index}) or die "$!\n";
     print
@@ -225,18 +241,18 @@ sub make_init_files{
   }
 
   if(-f $files->{template_archive}){
-    print "Already Exists. Skipped.\n";
+    print "Archives Template Already Exists. Skipped.\n";
   }else{
     open(my $fh, ">", $files->{template_archive}) or die "$!\n";
     print
 	  $fh
-	  "<h1>archive</h1>\n<hr>\n_=_ARCHIVE_=_",
+	  "<h1>archives</h1>\n<hr>\n_=_ARCHIVE_=_",
 	 ;
     close($fh);
   }
 
   if(-f $files->{template_page}){
-    print "Already Exists. Skipped.\n";
+    print "Article Template Already Exists. Skipped.\n";
   }else{
     open(my $fh, ">", $files->{template_page}) or die "$!\n";
     print
@@ -254,12 +270,12 @@ sub make_init_files{
   }
 
   if(-f $files->{template_tags}){
-    print "Already Exists. Skipped.\n";
+    print "Tags Template Already Exists. Skipped.\n";
   }else{
     open(my $fh, ">", $files->{template_tags}) or die "$!\n";
     print
 	  $fh
-	  "<h1>TAG: _=_TAG_NAME_=_</h1><hr>\n_=_RELATED_CONTENT_=_",
+	  "<h1>TAG: _=_TAG_NAME_=_</h1>\n<hr>\n_=_RELATED_CONTENT_=_",
 	 ;
     close($fh);
   }
@@ -312,7 +328,7 @@ sub make_nikki{
      last_md5 => $md5_value
     };
   nstore $hist_content, $files->{hist};
-  print "empty article was created. edit ".$dir.$filename."\n";
+  print "Empty article was created. edit ".$dir.$filename."\n";
 
 }
 
@@ -363,12 +379,12 @@ sub rehash_db{
       my $md5_value = Digest::MD5->new->addfile(*FILE)->hexdigest;
       close(FILE);
       if($md5_value ne $hist->{articles}->{$filename}->{last_md5}){
-	print "NOTICE: Modified article found. $filename info will be updated.\n";
+	print "NOTICE: Modified article found. $filename Internal DB will be updated.\n";
 	$hist->{articles}->{$filename}->{last_md5} = $md5_value;
 	$hist->{articles}->{$filename}->{updated_at} = &get_current_timestamp();
       }
     }else{
-      print "NOTICE: Unregistered article found. $filename info will be created.\n";
+      print "NOTICE: Unregistered article found. $filename Internal DB entry will be created.\n";
       open(FILE, $filename_full) or die "Can't open: $!";
       binmode(FILE);
       my $md5_value = Digest::MD5->new->addfile(*FILE)->hexdigest;
@@ -386,12 +402,12 @@ sub rehash_db{
   }
   foreach my $filename (sort {$b cmp $a} keys %{$hist->{articles}}){
     unless(-f $dirs->{article_dir}.$filename){
-      print "NOTICE: Deleted file detected. Article info will be removed from DB.\n";
+      print "NOTICE: Deleted file detected. Article info will be removed from Internal DB.\n";
       delete $hist->{articles}->{$filename};
     }
   }
   nstore $hist, $files->{hist};
-  print "Rehash DB: Complete.\n";
+  print "Rehash Internal DB: OK!\n";
 }
 
 sub compile_articles{
@@ -504,7 +520,7 @@ sub compile_articles{
       };
   }
 
-  print "Converting to HTML: OK.\n";
+  print "Converting to HTML from .nk file: OK.\n";
   my $tmp_prev = undef;
   my $tmp_prev_title = undef;
   my $tmp_next = undef;
@@ -588,9 +604,17 @@ sub compile_articles{
     open(my $fh_out,">",$output_file);
     print $fh_out $html;
     close($fh_out);
-    push(@$archive,{created_at => $created_at, updated_at => $updated_at, title => $title, summary => $summary, www_path => $converted->{$entry}->{www_path}});
+    push(@$archive,
+	 {
+	  created_at => $created_at,
+	  updated_at => $updated_at,
+	  title => $title,
+	  summary => $summary,
+	  www_path => $converted->{$entry}->{www_path}
+	 }
+	);
   }
-  print "Create All Article HTML files: OK\n";
+  print "Creating All Article HTML files: OK\n";
   ## compile archive page
   my $body_archive = $template_archive;
   my $html_archive = $template_base;
