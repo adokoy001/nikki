@@ -222,7 +222,7 @@ public/
     open(my $fh, ">", $files->{template_base}) or die "$!\n";
     print
 	  $fh
-	  "<!DOCTYPE html>\n<html>\n<head>\n<title>_=_TITLE_=_</title>\n_=_HEAD_=_\n</head>\n"
+	  "<!DOCTYPE html>\n<html>\n<head>\n<title>_=_TITLE_=_ - _=_SITE_NAME_=_</title>\n_=_HEAD_=_\n</head>\n"
 	  ."<body><a href=\"/\">TOP</a> | <a href=\"/tags.html\">TAG LIST<a> | <a href=\"/archive.html\">ARCHIVES</a>\n"
 	  ."<hr>\n_=_BODY_=_\n</body>\n</html>\n"
 	 ;
@@ -597,6 +597,7 @@ sub compile_articles{
     $body =~ s/_=_AUTHOR_=_/$author/;
 
     $html =~ s/_=_TITLE_=_/$title/;
+    $html =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
     $html =~ s/_=_HEAD_=_/$head/;
     $html =~ s/_=_BODY_=_/$body/;
 
@@ -627,6 +628,7 @@ sub compile_articles{
   $archive_list .= "</ul>\n";
   $body_archive =~ s/_=_ARCHIVE_=_/$archive_list/;
   $html_archive =~ s/_=_TITLE_=_/Archive/;
+  $html_archive =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
   $html_archive =~ s/_=_HEAD_=_//;
   $html_archive =~ s/_=_BODY_=_/$body_archive/;
   open(my $fh_archive,">",$output_file_archive);
@@ -657,6 +659,7 @@ sub compile_articles{
     $body =~ s/_=_RELATED_CONTENT_=_/$related_list/;
     $html =~ s/_=_HEAD_=_//;
     $html =~ s/_=_TITLE_=_/$html_title/;
+    $html =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
     $html =~ s/_=_BODY_=_/$body/;
     open(my $fh_tags, ">", $tag_info->{$tmp_tag}->{real_path});
     print $fh_tags $html;
@@ -664,6 +667,7 @@ sub compile_articles{
   }
   $body_tag_index .= "</ul>\n";
   $html_tag_index =~ s/_=_TITLE_=_/TAG LIST/;
+  $html_tag_index =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
   $html_tag_index =~ s/_=_HEAD_=_//;
   $html_tag_index =~ s/_=_BODY_=_/$body_tag_index/;
   open(my $fh_tag_index,">",$dirs->{public_dir}.'tags.html');
@@ -690,6 +694,7 @@ sub compile_articles{
   my $site_name = $config->{site_name};
   $body_index =~ s/_=_UPDATES_=_/$updates/;
   $html_index =~ s/_=_TITLE_=_/$site_name/;
+  $html_index =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
   $html_index =~ s/_=_HEAD_=_//;
   $html_index =~ s/_=_BODY_=_/$body_index/;
   open(my $fh_index, ">", $dirs->{public_dir}.'index.html');
