@@ -69,7 +69,7 @@ if($command eq 'init'){
   print 'NIKKI - a simple diary authoring tool.
 Usage: perl nikki.pl <command>
  Commands:
-  init    : Create diary project.
+  init    : Create new diary project.
   new     : Create new article.
   gen     : Compile and generate static html file.
   rehash  : ReOrg internal database.
@@ -208,7 +208,7 @@ public/
       {
        meta => {
 		created_at => $current_timestamp,
-		updated_at => $current_timestamp
+		updated_at => $current_timestamp,
 	       },
        articles => {}
       };
@@ -298,7 +298,7 @@ sub make_nikki{
     mkpath($dir) or die "Could not create directory: $!\n";
   }
   my $filename_base = $year.'_'.$month.'_'.$day.'_';
-  my $filename = $filename_base.$epoch.$proc.'.nk';
+  my $filename = $filename_base.'999X_'.$epoch.$proc.'.nk';
   for(1 .. 999){
     my $num = $_;
     my $tmp_filename = $filename_base.sprintf("%03d",$num).'.nk';
@@ -559,7 +559,14 @@ sub compile_articles{
   while(<$fh>){$template_tags .= $_; }
   close($fh);
 
+  my $entry_num = keys %$converted;
+  my $entry_counter = 1;
+  print "Deploying...";
   foreach my $entry (sort {$b cmp $a} keys %{$converted}){
+    if( $entry_counter % 50 == 0 and $entry_num >= 20){
+      print ".";
+    }
+    $entry_counter++;
     unless(-d $converted->{$entry}->{rel_path}){
       mkpath($dirs->{entry_dir}.$converted->{$entry}->{rel_path});
     }
@@ -615,6 +622,7 @@ sub compile_articles{
 	 }
 	);
   }
+  print "\n";
   print "Creating All Article HTML files: OK\n";
   ## compile archive page
   my $body_archive = $template_archive;
