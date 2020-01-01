@@ -498,7 +498,7 @@ sub compile_articles{
     $body_below =~ s/^==h([1-6]{1}) (.*?)$/<h$1>$2<\/h$1>/msg;
     $body_below =~ s/^==hr$/<hr>/msg;
     $body_below =~ s/^==ul(.*?)ul==$/<ul>$1<\/ul>/msg;
-    $body_below =~ s/==li (.*?)$/<li>$1<\/li>$2/msg;
+    $body_below =~ s/==li (.*?)$/<li>$1<\/li>/msg;
     $body_below =~ s/^==precode$(.*?)^precode==$/<pre><code>$1<\/code><\/pre>/msg;
     $body_below =~ s/==code (.*?) code==/<code>$1<\/code>/msg;
     $body_below =~ s/==a (.*?) ==href (.*?) a==/<a href=\"$2\">$1<\/a>/msg;
