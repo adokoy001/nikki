@@ -7,6 +7,8 @@ use Digest::MD5 qw(md5_hex);
 use Storable qw(nstore retrieve);
 use Safe;
 
+$Storable::canonical = 1;
+
 ####################################
 #
 #              NIKKI
