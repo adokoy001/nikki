@@ -67,7 +67,9 @@ if($command eq 'init'){
   &rehash_db;
 }elsif($command eq 'gen'){
   &compile_articles;
-}else{
+}elsif($command eq 'info'){
+  &show_info;
+  }else{
   print 'NIKKI - a simple diary authoring tool.
 Usage: perl nikki.pl <command>
  Commands:
@@ -75,6 +77,7 @@ Usage: perl nikki.pl <command>
   new     : Create new article.
   gen     : Compile and generate static html file.
   rehash  : ReOrg internal database.
+  info    : Show all articles information
  Example:
   $ perl nikki.pl init
   $ perl nikki.pl new
@@ -310,7 +313,7 @@ sub make_nikki{
     }
   }
   open(my $fh, ">", $dir.$filename) or die "$!\n";
-  print $fh "==TITLE_START== title here ==TITLE_END==\n\n"
+  print $fh "==TITLE_START==\ntitle here\n==TITLE_END==\n\n"
     ."==SUMMARY_START==\nsummarize this article.\n==SUMMARY_END==\n\n"
     ."==TAG_START==\nfoo bar baz anything\n==TAG_END==\n\n"
     ."==HEAD_START==\n==HEAD_END==\n\n==BODY_BELOW==\n";
@@ -370,12 +373,41 @@ sub search_all{
   return ($all_files,$all_files_relative);
 }
 
+sub show_info{
+  my ($all_files,$all_files_relative) = &search_all();
+  my $hist = retrieve $files->{hist};
+  foreach my $filename (sort {$a cmp $b} @$all_files_relative){
+    my $filename_full = $dirs->{article_dir}.$filename;
+    if(defined($hist->{articles}->{$filename})){
+      print "========== RECORD ST ==========\n";
+      print "FILENAME    : $filename\n";
+      print "CREATED_AT  : ".$hist->{articles}->{$filename}->{created_at}."\n";
+      print "LAST_UPDATE : ".$hist->{articles}->{$filename}->{updated_at}."\n";
+      print "HISTORY     : \n";
+      my $history = [];
+      if(defined($hist->{articles}->{$filename}->{history})){
+	$history = $hist->{articles}->{$filename}->{history};
+      }
+      for(my $ite = 0; $ite <= $#$history; $ite++){
+	print " [".sprintf("%3s",$ite+1)."] UPDATED_AT: ".$history->[$ite]->{updated_at}." / MD5: ".$history->[$ite]->{md5}."\n";
+      }
+      print "========== RECORD EN ==========\n";
+    }
+  }
+}
+
 sub rehash_db{
   my ($all_files,$all_files_relative) = &search_all();
   my $hist = retrieve $files->{hist};
   foreach my $filename (sort {$b cmp $a} @$all_files_relative){
     my $filename_full = $dirs->{article_dir}.$filename;
     if(defined($hist->{articles}->{$filename})){
+      my $current_update_at = $hist->{articles}->{$filename}->{updated_at};
+      my $current_last_md5 = $hist->{articles}->{$filename}->{last_md5};
+      my $history = [];
+      if(defined($hist->{articles}->{$filename}->{history})){
+	$history = $hist->{articles}->{$filename}->{history};
+      }
       open(FILE, $filename_full) or die "Can't open: $!";
       binmode(FILE);
       my $md5_value = Digest::MD5->new->addfile(*FILE)->hexdigest;
@@ -384,6 +416,8 @@ sub rehash_db{
 	print "NOTICE: Modified article found. $filename Internal DB will be updated.\n";
 	$hist->{articles}->{$filename}->{last_md5} = $md5_value;
 	$hist->{articles}->{$filename}->{updated_at} = &get_current_timestamp();
+	push(@$history,{updated_at => $current_update_at, md5 => $current_last_md5});
+	$hist->{articles}->{$filename}->{history} = $history;
       }
     }else{
       print "NOTICE: Unregistered article found. $filename Internal DB entry will be created.\n";
