@@ -416,7 +416,6 @@ sub compile_articles{
   # compile
   print "Starting compile and generate html files.\n";
   &rehash_db();
-  print "Rehash Internal DB: OK.\n";
   my $hist = retrieve $files->{hist};
   print "Load Internal DB: OK.\n";
   my ($all_files,$all_files_relative) = &search_all();
