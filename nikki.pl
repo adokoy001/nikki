@@ -534,7 +534,8 @@ sub compile_articles{
     $body_below =~ s/^==hr$/<hr>/msg;
     $body_below =~ s/^==ul(.*?)ul==$/<ul>$1<\/ul>/msg;
     $body_below =~ s/==li (.*?)$/<li>$1<\/li>/msg;
-    $body_below =~ s/^==precode$(.*?)^precode==$/<pre><code>$1<\/code><\/pre>/msg;
+    $body_below =~ s/^==precode([\r\n|\n|\r]{1})(.*?)^precode==$/<pre><code>$1<\/code><\/pre>/msg;
+    $body_below =~ s/^==pcode([\r\n|\n|\r]{1})(.*?)^pcode==$/<pre><code>$1<\/code><\/pre>/msg;
     $body_below =~ s/==code (.*?) code==/<code>$1<\/code>/msg;
     $body_below =~ s/==a (.*?) ==href (.*?) a==/<a href=\"$2\">$1<\/a>/msg;
     $body_below =~ s/==img (.*?) img==/<img src=\"$1\">/msg;
