@@ -9,12 +9,21 @@ use Safe;
 
 $Storable::canonical = 1;
 
-####################################
+###################################################
 #
-#              NIKKI
-#   a simple diary authoring tool
+#  NIKKI
+#   a simple diary authoring tool.
 #
-####################################
+#  Author: Toshiaki Yokoda
+#   adokoy001@gmail.com
+#
+#  License: Artistic License 2.0
+#   https://opensource.org/licenses/Artistic-2.0
+#
+#  This Perl program depends only on core modules.
+#  [perl 5.10 or later is required]
+#
+###################################################
 
 ## directory setting
 our $base_dir = $FindBin::Bin . '/';
