@@ -541,13 +541,28 @@ sub compile_articles{
     $body_below =~ s/>/&gt;/msg;
     $body_below =~ s/^==h([1-6]{1}) (.*?)$/<h$1>$2<\/h$1>/msg;
     $body_below =~ s/^==hr$/<hr>/msg;
+    ## lists
     $body_below =~ s/^==ul(.*?)ul==$/<ul>$1<\/ul>/msg;
+    $body_below =~ s/^==oln(.*?)oln==$/<ol type="1">$1<\/ol>/msg;
+    $body_below =~ s/^==ola(.*?)ola==$/<ol type="a">$1<\/ol>/msg;
+    $body_below =~ s/^==olA(.*?)olA==$/<ol type="A">$1<\/ol>/msg;
+    $body_below =~ s/^==oli(.*?)oli==$/<ol type="i">$1<\/ol>/msg;
+    $body_below =~ s/^==olI(.*?)olI==$/<ol type="I">$1<\/ol>/msg;
     $body_below =~ s/==li (.*?)$/<li>$1<\/li>/msg;
+    ## definition
+    $body_below =~ s/^==dl(.*?)dl==$/<dl>$1<\/dl>/msg;
+    $body_below =~ s/==dt (.*?)$/<dt>$1<\/dt>/msg;
+    $body_below =~ s/==dd (.*?)$/<dd>$1<\/dd>/msg;
+    ## coding
     $body_below =~ s/^==precode[\r\n|\n|\r]{1}(.*?)^precode==$/<pre><code>$1<\/code><\/pre>/msg;
     $body_below =~ s/^==pcode[\r\n|\n|\r]{1}(.*?)^pcode==$/<pre><code>$1<\/code><\/pre>/msg;
     $body_below =~ s/==code (.*?) code==/<code>$1<\/code>/msg;
+    ## link
     $body_below =~ s/==a (.*?) ==href (.*?) a==/<a href=\"$2\">$1<\/a>/msg;
+    ### suger
+    $body_below =~ s/==link (.*?) link==/<a href=\"$1\">$1<\/a>/msg;
     $body_below =~ s/==img (.*?) img==/<img src=\"$1\">/msg;
+    ## finalize
     $body_below =~ s/([\r\n|\n|\r]{1,})([^<>]+?)([\r\n|\n|\r]{2}|\Z)/$1<p>$2<\/p>$3/msg;
     $body_below =~ s/([\r\n|\n|\r]{1,})([^<>]+?)([\r\n|\n|\r]{2}|\Z)/$1<p>$2<\/p>$3/msg;
     $body_below =~ s/<p>([\r\n|\n|\r]{1,})<\/p>/$1/msg;
