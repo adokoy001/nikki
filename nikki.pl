@@ -552,6 +552,15 @@ sub compile_articles{
     $body_below =~ s/([\r\n|\n|\r]{1,})([^<>]+?)([\r\n|\n|\r]{2}|\Z)/$1<p>$2<\/p>$3/msg;
     $body_below =~ s/<p>([\r\n|\n|\r]{1,})<\/p>/$1/msg;
 
+    sub remove_tag(){
+      my $str = shift;
+      $str =~ s/<p>//msg;
+      $str =~ s/<\/p>//msg;
+      my $output = '<pre><code>' . $str . '</pre></code>';
+      return $output;
+    }
+    $body_below =~ s/^<pre><code>(.*?)<\/code><\/pre>$/&remove_tag($1)/emsg;
+
     $converted->{$file_rel} =
       {
        rel_path => $hist->{articles}->{$file_rel}->{rel_path},
