@@ -716,6 +716,16 @@ sub compile_articles{
   }
   $archive_list .= "</ul>\n";
   $body_archive =~ s/_=_ARCHIVE_=_/$archive_list/;
+
+  my $twitter_site_name = $config->{twitter_site_name} // '';
+  my $twitter_creator = $config->{twitter_creator} // '';
+  my $meta_info_archive = "<meta name=\"twitter:card\" content=\"summary\" />\n";
+  $meta_info_archive .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
+  $meta_info_archive .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
+  $meta_info_archive .= "<meta property=\"og:title\" content=\"Archive\" />\n";
+  $meta_info_archive .= "<meta property=\"og:description\" content=\"Archive\" />\n";
+
+  $html_archive =~ s/_=_META_INFO_=_/$meta_info_archive/;
   $html_archive =~ s/_=_TITLE_=_/Archive/;
   $html_archive =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
   $html_archive =~ s/_=_HEAD_=_//;
@@ -746,6 +756,14 @@ sub compile_articles{
     my $html_title = 'Related content : ' . &escape_html($tmp_tag);
     $body =~ s/_=_TAG_NAME_=_/$tag_name_escaped/;
     $body =~ s/_=_RELATED_CONTENT_=_/$related_list/;
+    my $meta_info_tag = "<meta name=\"twitter:card\" content=\"summary\" />\n";
+    $meta_info_tag .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
+    $meta_info_tag .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
+    $meta_info_tag .= "<meta property=\"og:title\" content=\"TAG : $tag_name_escaped\" />\n";
+    $meta_info_tag .= "<meta property=\"og:description\" content=\"related list by tag name\" />\n";
+
+    $html =~ s/_=_META_INFO_=_/$meta_info_tag/;
+
     $html =~ s/_=_HEAD_=_//;
     $html =~ s/_=_TITLE_=_/$html_title/;
     $html =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
@@ -755,6 +773,13 @@ sub compile_articles{
     close($html);
   }
   $body_tag_index .= "</ul>\n";
+
+  my $meta_info_tag_index = "<meta name=\"twitter:card\" content=\"summary\" />\n";
+  $meta_info_tag_index .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
+  $meta_info_tag_index .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
+  $meta_info_tag_index .= "<meta property=\"og:title\" content=\"TAGS\" />\n";
+  $meta_info_tag_index .= "<meta property=\"og:description\" content=\"Tag list\" />\n";
+  $html_tag_index =~ s/_=_META_INFO_=_/$meta_info_tag_index/;
   $html_tag_index =~ s/_=_TITLE_=_/TAG LIST/;
   $html_tag_index =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
   $html_tag_index =~ s/_=_HEAD_=_//;
@@ -782,6 +807,12 @@ sub compile_articles{
   $updates .= "<ul>\n";
   my $site_name = $config->{site_name};
   $body_index =~ s/_=_UPDATES_=_/$updates/;
+  my $meta_info_index = "<meta name=\"twitter:card\" content=\"summary\" />\n";
+  $meta_info_index .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
+  $meta_info_index .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
+  $meta_info_index .= "<meta property=\"og:title\" content=\"$site_name\" />\n";
+  $meta_info_index .= "<meta property=\"og:description\" content=\"$site_name : TOP\" />\n";
+  $html_index =~ s/_=_META_INFO_=_/$meta_info_index/;
   $html_index =~ s/_=_TITLE_=_/$site_name/;
   $html_index =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
   $html_index =~ s/_=_HEAD_=_//;
