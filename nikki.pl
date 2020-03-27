@@ -207,6 +207,8 @@ public/
        author => 'AUTHOR',
        whats_new => 10,
        document_root => '/',
+       twitter_site_name => '',
+       twitter_creator => '',
       };
     ";
     open(my $fh, ">", $files->{config});
@@ -236,7 +238,7 @@ public/
     open(my $fh, ">", $files->{template_base}) or die "$!\n";
     print
 	  $fh
-	  "<!DOCTYPE html>\n<html>\n<head>\n<title>_=_TITLE_=_ - _=_SITE_NAME_=_</title>\n_=_HEAD_=_\n</head>\n"
+	  "<!DOCTYPE html>\n<html>\n<head>\n_=_META_INFO_=_\n<title>_=_TITLE_=_ - _=_SITE_NAME_=_</title>\n_=_HEAD_=_\n</head>\n"
 	  ."<body><a href=\"/\">TOP</a> | <a href=\"/tags.html\">TAG LIST<a> | <a href=\"/archive.html\">ARCHIVES</a>\n"
 	  ."<hr>\n_=_BODY_=_\n</body>\n</html>\n"
 	 ;
@@ -672,6 +674,16 @@ sub compile_articles{
     $body =~ s/_=_UPDATED_AT_=_/$updated_at/;
     $body =~ s/_=_AUTHOR_=_/$author/;
 
+    my $twitter_site_name = $config->{twitter_site_name} // '';
+    my $twitter_creator = $config->{twitter_creator} // '';
+    my $meta_info = "<meta name=\"twitter:card\" content=\"summary\" />\n";
+    $meta_info .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
+    $meta_info .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
+
+    $meta_info .= "<meta property=\"og:title\" content=\"$title\" />\n";
+    $meta_info .= "<meta property=\"og:description\" content=\"$summary\" />\n";
+
+    $html =~ s/_=_META_INFO_=_/$meta_info/;
     $html =~ s/_=_TITLE_=_/$title/;
     $html =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
     $html =~ s/_=_HEAD_=_/$head/;
