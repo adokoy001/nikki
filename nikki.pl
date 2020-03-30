@@ -209,6 +209,7 @@ public/
        document_root => '/',
        twitter_site_name => '',
        twitter_creator => '',
+       tag_unification => 'case_sensitive',
       };
     ";
     open(my $fh, ">", $files->{config});
@@ -507,12 +508,26 @@ sub compile_articles{
       $tag_raw =~ s/^\s*(.+?)\s*$/$1/msg;
     }
     my @tags = split(/ /,$tag_raw);
+    my @tags_unified;
+    my $tmp_counter;
     foreach my $tag (@tags){
+      if(defined($config->{tag_unification})){
+	if($config->{tag_unification} eq 'upper'){
+	  $tag = uc($tag);
+	}elsif($config->{tag_unification} eq 'lower'){
+	  $tag = lc($tag);
+	}
+      }
       my $tag_hex = md5_hex($tag . md5_hex($tag) . $tag);
       my $tag_file_path = $config->{document_root}.'tags/'.$tag_hex.'.html';
       my $tag_file_real_path = $dirs->{tags_dir}.$tag_hex.'.html';
       $tag_info->{$tag}->{path} = $tag_file_path;
       $tag_info->{$tag}->{real_path} = $tag_file_real_path;
+
+      unless(defined($tmp_counter->{$tag})){
+	push(@tags_unified,$tag);
+      }
+      $tmp_counter->{$tag} = 1;
       if(defined($tag_info->{$tag}) and defined($tag_info->{$tag}->{counter})){
 	$tag_info->{$tag}->{counter} += 1;
       }else{
@@ -583,7 +598,7 @@ sub compile_articles{
        rel_path => $hist->{articles}->{$file_rel}->{rel_path},
        filename => $hist->{articles}->{$file_rel}->{filename},
        www_path => $tmp_path,
-       tags => \@tags,
+       tags => \@tags_unified,
        title => $title,
        summary => $summary,
        head => $head,
