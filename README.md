@@ -53,8 +53,6 @@ this area would converted to <pre><code>AREA</code></pre>
 precode==
 
 
-
-
 something ==code code style code== 
 
 
@@ -68,7 +66,26 @@ list like below.
 ul==
 
 
-link like below.
+
+You can use other lists(<ol> type="1",a,A,i,I) like below.
+
+==oln  (<ol type="1">)
+==ola  (<ol type="a">)
+==olA  (<ol type="A">)
+==oli  (<ol type="i">)
+==olI  (<ol type="I">)
+
+
+Definition like below.
+
+==dl
+==dt Name
+==dd Description and Definition
+dl==
+
+
+
+hyper-link like below.
 
 ==a my web site is here ==href https://your.web.site.example.com a==
 
@@ -85,4 +102,22 @@ would converted to : <img src="/images/icon/my_icon.png">
 
 
 ```
+
+## Configuration
+
+Global configuration in `etc/config/config.conf` .
+
+```
+      {
+       site_name => 'SITE NAME',  ## your diary name
+       author => 'AUTHOR',  ## your name
+       whats_new => 10,  ## number of articles would shown in TOP page.
+       document_root => '/',  ## do not change.
+       twitter_site_name => '', ## automatically generated meta tag related twitter card.
+       twitter_creator => '',  ## Same as above.
+       tag_unification => 'case_sensitive',  ## you can set tag generator unification policy.
+      };
+
+```
+
 
