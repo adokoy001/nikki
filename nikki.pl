@@ -6,6 +6,12 @@ use File::Path;
 use Digest::MD5 qw(md5_hex);
 use Storable qw(nstore retrieve);
 use Safe;
+use lib "$FindBin::Bin/etc";
+
+my $user_function_load = eval{
+  require NikkiUserFunction;
+  1;
+  };
 
 $Storable::canonical = 1;
 
@@ -49,8 +55,10 @@ our $files =
    template_base => $dirs->{template_dir} . 'base.tmpl',
    template_index => $dirs->{template_dir} . 'index.tmpl',
    template_archive => $dirs->{template_dir} . 'archive.tmpl',
+   template_tag_index => $dirs->{template_dir} . 'tag_index.tmpl',
    template_page => $dirs->{template_dir} . 'page.tmpl',
    template_tags => $dirs->{template_dir} . 'tags.tmpl',
+   user_function => $dirs->{etc_dir} . 'NikkiUserFunction.pm',
    };
 
 ## commands
@@ -198,6 +206,59 @@ public/
     close($fh);
   }
 
+
+  if(-f $files->{user_function}){
+    print "User function Already exists. Skipped.\n";
+  }else{
+
+    my $user_function_content = 'package NikkiUserFunction;
+use strict;
+use warnings;
+use utf8;
+use Exporter \'import\';
+our @EXPORT = qw/entry_filter archive_generator tag_index_generator/;
+
+sub entry_filter(){
+  my $input = shift;
+  ## write filter.
+  my $output = $input;
+  return $output;
+}
+
+sub archive_generator(){
+  ## this will work on _=_USER_DEFINED_ARCHIVE_=_ label.
+  my $archive = shift;
+  my $archive_list = "";
+  $archive_list .= "<ul>\n";
+  foreach my $entry (@$archive){
+    $archive_list .= "  <li> $entry->{created_at} : <a href=\"$entry->{www_path}\"> $entry->{title} </a> - $entry->{summary} </li>\n";
+  }
+  $archive_list .= "</ul>\n";
+  return $archive_list;
+}
+
+sub tag_index_generator(){
+  ## this will work on _=_USER_DEFINED_TAG_INDEX_=_ label.
+  my $tag_info = shift;
+  ## write tag index html content generator.
+  my $body_tag_index .= "<ul>\n";
+  foreach my $tmp_tag (sort keys %$tag_info){
+    my $tag_link = $tag_info->{$tmp_tag}->{path};
+    my $tag_real_path = $tag_info->{$tmp_tag}->{real_path};
+    my $tag_counter = $tag_info->{$tmp_tag}->{counter};
+    $body_tag_index .= "<li><a href=\"$tag_link\"> $tmp_tag ($tag_counter)</a></li>\n";
+  }
+  $body_tag_index .= "</ul>\n";
+  return $body_tag_index;
+}
+
+1;
+';
+    open(my $fh, ">", $files->{user_function});
+    print $fh $user_function_content;
+    close($fh);
+  }
+
   if(-f $files->{config}){
     print "Config File Already Exists. Skipped.\n";
   }else{
@@ -283,6 +344,17 @@ public/
 	  ."updated at : _=_UPDATED_AT_=_<br>\n"
 	  ."author : _=_AUTHOR_=_<br>\n"
 	  ."</section>\n"
+	 ;
+    close($fh);
+  }
+
+  if(-f $files->{template_tag_index}){
+    print "Tag Index Template Already Exists. Skipped.\n";
+  }else{
+    open(my $fh, ">", $files->{template_tag_index}) or die "$!\n";
+    print
+	  $fh
+	  "<h1>TAG LIST</h1>\n<hr>\n_=_TAG_INDEX_=_",
 	 ;
     close($fh);
   }
@@ -594,6 +666,10 @@ sub compile_articles{
     }
     $body_below =~ s/^<pre><code>(.*?)<\/code><\/pre>$/&remove_tag($1)/emsg;
 
+    if($user_function_load){
+      $body_below = NikkiUserFunction::entry_filter($body_below);
+    }
+
     $converted->{$file_rel} =
       {
        rel_path => $hist->{articles}->{$file_rel}->{rel_path},
@@ -641,6 +717,16 @@ sub compile_articles{
   open($fh,"<",$files->{template_archive});
   while(<$fh>){$template_archive .= $_; }
   close($fh);
+  my $template_tag_index = '';
+  my $tag_index_flag = 0;
+  if(-f $files->{template_tag_index}){
+    $tag_index_flag = 1;
+    open($fh,"<",$files->{template_tag_index});
+    while(<$fh>){$template_tag_index .= $_; }
+    close($fh);
+  }else{
+    $template_tag_index = $template_base;
+  }
   my $template_tags = '';
   open($fh,"<",$files->{template_tags});
   while(<$fh>){$template_tags .= $_; }
@@ -732,6 +818,10 @@ sub compile_articles{
   }
   $archive_list .= "</ul>\n";
   $body_archive =~ s/_=_ARCHIVE_=_/$archive_list/;
+  if($user_function_load){
+    my $user_archive = NikkiUserFunction::archive_generator($archive);
+    $body_archive =~ s/_=_USER_DEFINED_ARCHIVE_=_/$user_archive/;
+  }
 
   my $twitter_site_name = $config->{twitter_site_name} // '';
   my $twitter_creator = $config->{twitter_creator} // '';
@@ -753,7 +843,9 @@ sub compile_articles{
   ## compile tag page
   my $body_tag_index = '';
   my $html_tag_index = $template_base;
-  $body_tag_index .= "<h1>TAG LIST</h1>\n<ul>\n";
+  if($tag_index_flag == 0){
+    $body_tag_index .= "<h1>TAG LIST</h1>\n<ul>\n";
+  }
   foreach my $tmp_tag (sort keys %$tag_info){
     my $tag_link = $tag_info->{$tmp_tag}->{path};
     my $tag_real_path = $tag_info->{$tmp_tag}->{real_path};
@@ -799,7 +891,16 @@ sub compile_articles{
   $html_tag_index =~ s/_=_TITLE_=_/TAG LIST/;
   $html_tag_index =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
   $html_tag_index =~ s/_=_HEAD_=_//;
-  $html_tag_index =~ s/_=_BODY_=_/$body_tag_index/;
+  if($tag_index_flag == 0){
+    $html_tag_index =~ s/_=_BODY_=_/$body_tag_index/;
+  }else{
+    $template_tag_index =~ s/_=_TAG_INDEX_=_/$body_tag_index/;
+    $html_tag_index =~ s/_=_BODY_=_/$template_tag_index/;
+  }
+  if($user_function_load){
+    my $user_tag_index = NikkiUserFunction::tag_index_generator($tag_info);
+    $html_tag_index =~ s/_=_USER_DEFINED_TAG_INDEX_=_/$user_tag_index/;
+  }
   open(my $fh_tag_index,">",$dirs->{public_dir}.'tags.html');
   print $fh_tag_index $html_tag_index;
   close($fh_tag_index);
