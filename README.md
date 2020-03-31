@@ -116,6 +116,7 @@ Global configuration in `etc/config/config.conf` .
        twitter_site_name => '', ## automatically generated meta tag related twitter card.
        twitter_creator => '',  ## Same as above.
        tag_unification => 'case_sensitive',  ## you can set tag generator unification policy.
+       url => 'https://your.site.example.com',  ## your site url used for RSS.
       };
 
 ```
