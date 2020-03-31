@@ -210,6 +210,7 @@ public/
        twitter_site_name => '',
        twitter_creator => '',
        tag_unification => 'case_sensitive',
+       url => 'https://example.com',
       };
     ";
     open(my $fh, ">", $files->{config});
@@ -845,6 +846,8 @@ sub compile_articles{
   $meta_info_index .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
   $meta_info_index .= "<meta property=\"og:title\" content=\"$site_name\" />\n";
   $meta_info_index .= "<meta property=\"og:description\" content=\"$site_name : TOP\" />\n";
+  $meta_info_index .= "<link rel=\"alternate\" type=\"application/atom+xml\" title=\"Atom\" href=\"$config->{document_root}atom.xml\">\n";
+
   $html_index =~ s/_=_META_INFO_=_/$meta_info_index/;
   $html_index =~ s/_=_TITLE_=_/$site_name/;
   $html_index =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
