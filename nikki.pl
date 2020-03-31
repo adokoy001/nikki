@@ -807,6 +807,14 @@ sub compile_articles{
   my $body_index = $template_index;
   my $html_index = $template_base;
   my $updates = "<ul>\n";
+  my ($front_newest_timestamp,$rear_newest_timestamp) = split(' ',$archive->[0]->{updated_at});
+  my $newest_timestamp = $front_newest_timestamp . 'T' . $rear_newest_timestamp . 'Z';
+  my $url = '';
+  if(defined($config->{url})){
+    $url = $config->{url};
+  }
+  my $atom_content = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<feed xmlnx=\"http://www.w3.org/2005/Atom\">\n\n";
+  $atom_content .= "<title>$config->{site_name}</title>\n<link href=\"$url\" />\n<updated>$newest_timestamp</updated>\n<author><name>$config->{author}</name></author>";
   my $counter = 0;
   foreach my $entry (@$archive){
     $counter++;
@@ -817,8 +825,18 @@ sub compile_articles{
 	.': <a href="'.$entry->{www_path}
 	.'">'.$entry->{title}
 	."</a> - ".&escape_html($entry->{summary})." - </li>\n";
+      $atom_content .= "<entry>\n<title>$entry->{title}</title>\n<link href=\""
+	. $url . $entry->{www_path} ."\"/><id>tag:" . $url . $entry->{www_path} . "</id>\n<updated>"
+	. $entry->{updated_at}."</updated>\n<summary>"
+	. &escape_html($entry->{summary})."</summary>\n</entry>\n";
     }
   }
+  $atom_content .= "</feed>\n";
+
+  open(my $fh_atom, ">", $dirs->{public_dir}.'atom.xml');
+  print $fh_atom $atom_content;
+  close($fh_atom);
+  print "Create atom.xml: OK.\n";
   $updates .= "<ul>\n";
   my $site_name = $config->{site_name};
   $body_index =~ s/_=_UPDATES_=_/$updates/;
