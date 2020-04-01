@@ -514,7 +514,7 @@ sub rehash_db{
       my $filename_only = $filepath_array[$#filepath_array];
       pop(@filepath_array);
       my $relpath_only = join('/',@filepath_array);
-      $hist->{articles}->{$filename}->{rel_path} = $relpath_only;
+      $hist->{articles}->{$filename}->{rel_path} = $relpath_only . '/';
       $hist->{articles}->{$filename}->{filename} = $filename_only;
       $hist->{articles}->{$filename}->{last_md5} = $md5_value;
       $hist->{articles}->{$filename}->{created_at} = &get_current_timestamp();
