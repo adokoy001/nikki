@@ -244,7 +244,9 @@ sub archive_generator(){
   my $archive_list = "";
   $archive_list .= "<ul>\n";
   foreach my $entry (@$archive){
-    $archive_list .= "  <li> $entry->{created_at} : <a href=\"$entry->{www_path}\"> $entry->{title} </a> - $entry->{summary} </li>\n";
+    my ($date) = (split("/",$entry->{www_path}))[4];
+    my ($yyyy,$mm,$dd) = (split("_",$date))[0,1,2];
+    $archive_list .= "  <li> $yyyy-$mm-$dd : <a href=\"$entry->{www_path}\"> $entry->{title} </a> - $entry->{summary} </li>\n";
   }
   $archive_list .= "</ul>\n";
   return $archive_list;
@@ -269,7 +271,9 @@ sub related_content(){
   my $tag_related = shift;
   my $related_list = "<ul>\n";
   foreach my $entry (@$tag_related){
-    $related_list .= "<li>" . $entry->{created_at} . ": <a href=\"" . $entry->{path} . ">"
+    my ($date) = (split("/",$entry->{path}))[4];
+    my ($yyyy,$mm,$dd) = (split("_",$date))[0,1,2];
+    $related_list .= "<li> $yyyy-$mm-$dd : <a href=\"" . $entry->{path} . "\">"
       . &escape_html($entry->{title}) . "</a></li>\n";
   }
   $related_list .= "</ul>\n";
