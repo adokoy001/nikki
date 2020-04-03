@@ -216,7 +216,20 @@ use strict;
 use warnings;
 use utf8;
 use Exporter \'import\';
-our @EXPORT = qw/entry_filter archive_generator tag_index_generator/;
+our @EXPORT = qw/entry_filter archive_generator tag_index_generator related_content/;
+
+sub escape_html {
+  my $input = shift;
+  if(defined($input) and $input ne ""){
+    $input =~ s/&/&amp;/msg;
+    $input =~ s/</&lt;/msg;
+    $input =~ s/>/&gt;/msg;
+    $input =~ s/"/&quot;/msg;
+    return $input;
+  }else{
+    return "";
+  }
+}
 
 sub entry_filter(){
   my $input = shift;
@@ -252,6 +265,16 @@ sub tag_index_generator(){
   return $body_tag_index;
 }
 
+sub related_content(){
+  my $tag_related = shift;
+  my $related_list = "<ul>\n";
+  foreach my $entry (@$tag_related){
+    $related_list .= "<li>" . $entry->{created_at} . ": <a href=\"" . $entry->{path} . ">"
+      . &escape_html($entry->{title}) . "</a></li>\n";
+  }
+  $related_list .= "</ul>\n";
+  return $related_list;
+}
 1;
 ';
     open(my $fh, ">", $files->{user_function});
@@ -860,10 +883,17 @@ sub compile_articles{
 	.&escape_html($entry->{title})."</a></li>\n";
     }
     $related_list .= "<ul>\n";
+    my $user_related_list = "";
+    if($user_function_load == 1){
+      if(defined(NikkiUserFunction::related_content())){
+	$user_related_list = NikkiUserFunction::related_content($tag_related);
+      }
+    }
     my $tag_name_escaped = &escape_html($tmp_tag);
     my $html_title = 'Related content : ' . &escape_html($tmp_tag);
     $body =~ s/_=_TAG_NAME_=_/$tag_name_escaped/;
     $body =~ s/_=_RELATED_CONTENT_=_/$related_list/;
+    $body =~ s/_=_USER_DEFINED_RELATED_CONTENT_=_/$user_related_list/;
     my $meta_info_tag = "<meta name=\"twitter:card\" content=\"summary\" />\n";
     $meta_info_tag .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
     $meta_info_tag .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
