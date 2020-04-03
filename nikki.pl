@@ -933,6 +933,7 @@ sub compile_articles{
 	. &escape_html($entry->{summary})."</summary>\n</entry>\n";
     }
   }
+  $updates .= "</ul>\n";
   $atom_content .= "</feed>\n";
 
   open(my $fh_atom, ">", $dirs->{public_dir}.'atom.xml');
