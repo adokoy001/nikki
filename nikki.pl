@@ -575,6 +575,10 @@ sub compile_articles{
   if(defined($config->{og_default_image}) and $config->{og_default_image} ne ''){
     $og_default_image_str = "<meta property=\"og:image\" content=\"$config->{og_default_image}\"/>\n";
   }
+  my $twitter_default_image_str = "";
+  if(defined($config->{og_default_image}) and $config->{og_default_image} ne ''){
+    $twitter_default_image_str = "<meta property=\"twitter:image\" content=\"$config->{og_default_image}\"/>\n";
+  }
   my $og_default_locale_str = "";
   if(defined($config->{og_default_locale}) and $config->{og_default_locale} ne ''){
     $og_default_locale_str = "<meta property=\"og:locale\" content=\"$config->{og_default_locale}\"/>\n";
@@ -834,8 +838,10 @@ sub compile_articles{
     $meta_info .= "<meta property=\"og:type\" content=\"article\" />\n";
     if(defined($converted->{$entry}->{og_image}) and $converted->{$entry}->{og_image} ne ''){
       $meta_info .= "<meta property=\"og:image\" content=\"".$converted->{$entry}->{og_image}."\" />\n";
+      $meta_info .= "<meta property=\"twitter:image\" content=\"".$converted->{$entry}->{og_image}."\" />\n";
     }else{
       $meta_info .= $og_default_image_str;
+      $meta_info .= $twitter_default_image_str;
     }
     if(defined($converted->{$entry}->{og_locale}) and $converted->{$entry}->{og_locale} ne ''){
       $meta_info .= "<meta property=\"og:locale\" content=\"".$converted->{$entry}->{og_locale}."\" />\n";
@@ -892,6 +898,7 @@ sub compile_articles{
   $meta_info_archive .= "<meta property=\"og:type\" content=\"blog\" />\n";
   $meta_info_archive .= "<meta property=\"og:description\" content=\"Archive\" />\n";
   $meta_info_archive .= $og_default_image_str;
+  $meta_info_archive .= $twitter_default_image_str;
   $meta_info_archive .= $og_default_locale_str;
   $html_archive =~ s/_=_META_INFO_=_/$meta_info_archive/;
   $html_archive =~ s/_=_TITLE_=_/Archive/;
@@ -940,6 +947,7 @@ sub compile_articles{
     $meta_info_tag .= "<meta property=\"og:type\" content=\"blog\" />\n";
     $meta_info_tag .= "<meta property=\"og:description\" content=\"related list by tag name\" />\n";
     $meta_info_tag .= $og_default_image_str;
+    $meta_info_tag .= $twitter_default_image_str;
     $meta_info_tag .= $og_default_locale_str;
 
     $html =~ s/_=_META_INFO_=_/$meta_info_tag/;
@@ -960,6 +968,7 @@ sub compile_articles{
   $meta_info_tag_index .= "<meta property=\"og:title\" content=\"TAGS\" />\n";
   $meta_info_tag_index .= "<meta property=\"og:type\" content=\"blog\" />\n";
   $meta_info_tag_index .= $og_default_image_str;
+  $meta_info_tag_index .= $twitter_default_image_str;
   $meta_info_tag_index .= $og_default_locale_str;
 
   $meta_info_tag_index .= "<meta property=\"og:description\" content=\"Tag list\" />\n";
@@ -1026,6 +1035,7 @@ sub compile_articles{
   $meta_info_index .= "<meta property=\"og:type\" content=\"blog\" />\n";
   $meta_info_index .= "<meta property=\"og:description\" content=\"$site_name : TOP\" />\n";
   $meta_info_index .= $og_default_image_str;
+  $meta_info_index .= $twitter_default_image_str;
   $meta_info_index .= $og_default_locale_str;
   $meta_info_index .= "<link rel=\"alternate\" type=\"application/atom+xml\" title=\"Atom\" href=\"$config->{document_root}atom.xml\">\n";
 
