@@ -571,17 +571,21 @@ sub compile_articles{
   print "Search All entries: OK.\n";
   my $config = &load_config();
   print "Load Config: OK.\n";
+  my $url_base = '';
+  if(defined($config->{url}) and $config->{url} ne ''){
+    $url_base = $config->{url};
+  }
   my $og_default_image_str = "";
   if(defined($config->{og_default_image}) and $config->{og_default_image} ne ''){
-    $og_default_image_str = "<meta property=\"og:image\" content=\"$config->{og_default_image}\"/>\n";
+    $og_default_image_str = "<meta property=\"og:image\" content=\"".$url_base. $config->{og_default_image}."\"/>\n";
   }
   my $twitter_default_image_str = "";
   if(defined($config->{og_default_image}) and $config->{og_default_image} ne ''){
-    $twitter_default_image_str = "<meta property=\"twitter:image\" content=\"$config->{og_default_image}\"/>\n";
+    $twitter_default_image_str = "<meta property=\"twitter:image\" content=\"".$url_base.$config->{og_default_image}."\"/>\n";
   }
   my $og_default_locale_str = "";
   if(defined($config->{og_default_locale}) and $config->{og_default_locale} ne ''){
-    $og_default_locale_str = "<meta property=\"og:locale\" content=\"$config->{og_default_locale}\"/>\n";
+    $og_default_locale_str = "<meta property=\"og:locale\" content=\"".$config->{og_default_locale}."\"/>\n";
   }
   my $tag_info = {};
   my $archive = [];
@@ -837,14 +841,14 @@ sub compile_articles{
     $meta_info .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
     $meta_info .= "<meta property=\"og:type\" content=\"article\" />\n";
     if(defined($converted->{$entry}->{og_image}) and $converted->{$entry}->{og_image} ne ''){
-      $meta_info .= "<meta property=\"og:image\" content=\"".$converted->{$entry}->{og_image}."\" />\n";
-      $meta_info .= "<meta property=\"twitter:image\" content=\"".$converted->{$entry}->{og_image}."\" />\n";
+      $meta_info .= "<meta property=\"og:image\" content=\"".$url_base.$converted->{$entry}->{og_image}."\" />\n";
+      $meta_info .= "<meta property=\"twitter:image\" content=\"".$url_base.$converted->{$entry}->{og_image}."\" />\n";
     }else{
       $meta_info .= $og_default_image_str;
       $meta_info .= $twitter_default_image_str;
     }
     if(defined($converted->{$entry}->{og_locale}) and $converted->{$entry}->{og_locale} ne ''){
-      $meta_info .= "<meta property=\"og:locale\" content=\"".$converted->{$entry}->{og_locale}."\" />\n";
+      $meta_info .= "<meta property=\"og:locale\" content=\"".$url_base.$converted->{$entry}->{og_locale}."\" />\n";
     }else{
       $meta_info .= $og_default_locale_str;
     }
