@@ -299,6 +299,8 @@ sub related_content(){
        twitter_creator => '',
        tag_unification => 'case_sensitive',
        url => 'https://example.com',
+       og_default_image => '',
+       og_default_locale => '',
       };
     ";
     open(my $fh, ">", $files->{config});
@@ -426,6 +428,7 @@ sub make_nikki{
   }
   open(my $fh, ">", $dir.$filename) or die "$!\n";
   print $fh "==TITLE_START==\ntitle here\n==TITLE_END==\n\n"
+    ."==OG_IMAGE \n==OG_LOCALE \n\n"
     ."==SUMMARY_START==\nsummarize this article.\n==SUMMARY_END==\n\n"
     ."==TAG_START==\nfoo bar baz anything\n==TAG_END==\n\n"
     ."==HEAD_START==\n==HEAD_END==\n\n==BODY_BELOW==\n";
@@ -568,6 +571,14 @@ sub compile_articles{
   print "Search All entries: OK.\n";
   my $config = &load_config();
   print "Load Config: OK.\n";
+  my $og_default_image_str = "";
+  if(defined($config->{og_default_image}) and $config->{og_default_image} ne ''){
+    $og_default_image_str = "<meta property=\"og:image\" content=\"$config->{og_default_image}\"/>\n";
+  }
+  my $og_default_locale_str = "";
+  if(defined($config->{og_default_locale}) and $config->{og_default_locale} ne ''){
+    $og_default_locale_str = "<meta property=\"og:locale\" content=\"$config->{og_default_locale}\"/>\n";
+  }
   my $tag_info = {};
   my $archive = [];
   my $converted = {};
@@ -590,6 +601,16 @@ sub compile_articles{
     if($body_above =~ /==TITLE_START==(.*?)==TITLE_END==/msg){
       $title = $1;
       $title =~ s/^\s*(.+?)\s*$/$1/msg;
+    }
+    my $og_image = '';
+    if($body_above =~ /==OG_IMAGE (.*?)$/msg){
+      $og_image = $1;
+      $og_image =~ s/^\s*(.+?)\s*$/$1/msg;
+    }
+    my $og_locale = '';
+    if($body_above =~ /==OG_LOCALE (.*?)$/msg){
+      $og_locale = $1;
+      $og_locale =~ s/^\s*(.+?)\s*$/$1/msg;
     }
     my $summary = 'NO SUMMARY';
     if($body_above =~ /==SUMMARY_START==(.*?)==SUMMARY_END==/msg){
@@ -702,6 +723,8 @@ sub compile_articles{
        rel_path => $hist->{articles}->{$file_rel}->{rel_path},
        filename => $hist->{articles}->{$file_rel}->{filename},
        www_path => $tmp_path,
+       og_image => $og_image,
+       og_locale => $og_locale,
        tags => \@tags_unified,
        title => $title,
        summary => $summary,
@@ -808,7 +831,17 @@ sub compile_articles{
     my $meta_info = "<meta name=\"twitter:card\" content=\"summary\" />\n";
     $meta_info .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
     $meta_info .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
-
+    $meta_info .= "<meta property=\"og:type\" content=\"article\" />\n";
+    if(defined($converted->{$entry}->{og_image}) and $converted->{$entry}->{og_image} ne ''){
+      $meta_info .= "<meta property=\"og:image\" content=\"".$converted->{$entry}->{og_image}."\" />\n";
+    }else{
+      $meta_info .= $og_default_image_str;
+    }
+    if(defined($converted->{$entry}->{og_locale}) and $converted->{$entry}->{og_locale} ne ''){
+      $meta_info .= "<meta property=\"og:locale\" content=\"".$converted->{$entry}->{og_locale}."\" />\n";
+    }else{
+      $meta_info .= $og_default_locale_str;
+    }
     $meta_info .= "<meta property=\"og:title\" content=\"$title\" />\n";
     $meta_info .= "<meta property=\"og:description\" content=\"$summary\" />\n";
 
@@ -856,8 +889,10 @@ sub compile_articles{
   $meta_info_archive .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
   $meta_info_archive .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
   $meta_info_archive .= "<meta property=\"og:title\" content=\"Archive\" />\n";
+  $meta_info_archive .= "<meta property=\"og:type\" content=\"blog\" />\n";
   $meta_info_archive .= "<meta property=\"og:description\" content=\"Archive\" />\n";
-
+  $meta_info_archive .= $og_default_image_str;
+  $meta_info_archive .= $og_default_locale_str;
   $html_archive =~ s/_=_META_INFO_=_/$meta_info_archive/;
   $html_archive =~ s/_=_TITLE_=_/Archive/;
   $html_archive =~ s/_=_SITE_NAME_=_/$config->{site_name}/g;
@@ -902,7 +937,10 @@ sub compile_articles{
     $meta_info_tag .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
     $meta_info_tag .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
     $meta_info_tag .= "<meta property=\"og:title\" content=\"TAG : $tag_name_escaped\" />\n";
+    $meta_info_tag .= "<meta property=\"og:type\" content=\"blog\" />\n";
     $meta_info_tag .= "<meta property=\"og:description\" content=\"related list by tag name\" />\n";
+    $meta_info_tag .= $og_default_image_str;
+    $meta_info_tag .= $og_default_locale_str;
 
     $html =~ s/_=_META_INFO_=_/$meta_info_tag/;
 
@@ -920,6 +958,10 @@ sub compile_articles{
   $meta_info_tag_index .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
   $meta_info_tag_index .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
   $meta_info_tag_index .= "<meta property=\"og:title\" content=\"TAGS\" />\n";
+  $meta_info_tag_index .= "<meta property=\"og:type\" content=\"blog\" />\n";
+  $meta_info_tag_index .= $og_default_image_str;
+  $meta_info_tag_index .= $og_default_locale_str;
+
   $meta_info_tag_index .= "<meta property=\"og:description\" content=\"Tag list\" />\n";
   $html_tag_index =~ s/_=_META_INFO_=_/$meta_info_tag_index/;
   $html_tag_index =~ s/_=_TITLE_=_/TAG LIST/;
@@ -981,7 +1023,10 @@ sub compile_articles{
   $meta_info_index .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
   $meta_info_index .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
   $meta_info_index .= "<meta property=\"og:title\" content=\"$site_name\" />\n";
+  $meta_info_index .= "<meta property=\"og:type\" content=\"blog\" />\n";
   $meta_info_index .= "<meta property=\"og:description\" content=\"$site_name : TOP\" />\n";
+  $meta_info_index .= $og_default_image_str;
+  $meta_info_index .= $og_default_locale_str;
   $meta_info_index .= "<link rel=\"alternate\" type=\"application/atom+xml\" title=\"Atom\" href=\"$config->{document_root}atom.xml\">\n";
 
   $html_index =~ s/_=_META_INFO_=_/$meta_info_index/;

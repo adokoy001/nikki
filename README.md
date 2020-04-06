@@ -117,6 +117,8 @@ Global configuration in `etc/config/config.conf` .
        twitter_creator => '',  ## Same as above.
        tag_unification => 'case_sensitive',  ## you can set tag generator unification policy.
        url => 'https://your.site.example.com',  ## your site url used for RSS.
+       og_default_image => '/assets/top_logo.png',  ## set your Open Graph default image.
+       og_default_locale => 'ja_JP',  ## set your default locale
       };
 
 ```
