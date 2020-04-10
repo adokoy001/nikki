@@ -703,6 +703,20 @@ sub compile_articles{
     $body_below =~ s/^==precode[\r\n|\n|\r]{1}(.*?)^precode==$/<pre><code>$1<\/code><\/pre>/msg;
     $body_below =~ s/^==pcode[\r\n|\n|\r]{1}(.*?)^pcode==$/<pre><code>$1<\/code><\/pre>/msg;
     $body_below =~ s/==code (.*?) code==/<code>$1<\/code>/msg;
+    ## modification
+    $body_below =~ s/==big (.*?) big==/<big>$1<\/big>/msg;
+    $body_below =~ s/==small (.*?) small==/<small>$1<\/small>/msg;
+    $body_below =~ s/==del (.*?) del==/<strike>$1<\/strike>/msg;
+    $body_below =~ s/==st (.*?) st==/<strong>$1<\/strong>/msg;
+    $body_below =~ s/==dfn (.*?) dfn==/<dfn>$1<\/dfn>/msg;
+    $body_below =~ s/==em (.*?) em==/<em>$1<\/em>/msg;
+    $body_below =~ s/==i (.*?) i==/<i>$1<\/i>/msg;
+    $body_below =~ s/==b (.*?) b==/<b>$1<\/b>/msg;
+    $body_below =~ s/==u (.*?) u==/<u>$1<\/u>/msg;
+    $body_below =~ s/==span (.*?) ==s (.*?) ==c (.*?) span==/<span style="$2" class="$3">$1<\/span>/msg;
+    $body_below =~ s/==span (.*?) ==c (.*?) ==s (.*?) span==/<span class="$2" style="$3">$1<\/span>/msg;
+    $body_below =~ s/==span (.*?) ==s (.*?) span==/<span style="$2">$1<\/span>/msg;
+    $body_below =~ s/==span (.*?) ==c (.*?) span==/<span class="$2">$1<\/span>/msg;
     ## link
     $body_below =~ s/==a (.*?) ==href (.*?) a==/<a href=\"$2\">$1<\/a>/msg;
     ### suger
