@@ -189,6 +189,16 @@ sub load_config{
   return $config;
 }
 
+sub gen_rand{
+  my $length = 128;
+  my @chars = (0 .. 9, 'A' .. 'Z', 'a' .. 'z');
+  my $output = '';
+  for(1 .. $length){
+    my $tmp = $chars[int(rand($#chars+1))];
+    $output = $output . $tmp;
+  }
+  return $output;
+}
 
 ## make essential files
 sub make_init_files{
@@ -715,6 +725,14 @@ sub compile_articles{
       }
     }
 
+    # escape raw html
+    my $escaped_text;
+    while($body_below =~ /==literal(.+?)literal==/ms){
+      my $tmp_raw_html = $1;
+      my $rand = &gen_rand();
+      $escaped_text->{$rand} = $tmp_raw_html;
+      $body_below =~ s/==literal(.+?)literal==/$rand/ms;
+    }
     # Specified markup language
     $body_below =~ s/</&lt;/msg;
     $body_below =~ s/>/&gt;/msg;
@@ -773,6 +791,11 @@ sub compile_articles{
       $body_below = NikkiUserFunction::entry_filter($body_below);
     }
 
+    # restore escaped raw html
+    foreach my $key (sort keys %$escaped_text){
+      my $tmp_text = $escaped_text->{$key};
+      $body_below =~ s/$key/$tmp_text/;
+    }
     $converted->{$file_rel} =
       {
        rel_path => $hist->{articles}->{$file_rel}->{rel_path},
