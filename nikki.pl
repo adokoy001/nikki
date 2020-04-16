@@ -279,6 +279,39 @@ sub related_content(){
   $related_list .= "</ul>\n";
   return $related_list;
 }
+
+sub whats_new(){
+  my $archive = shift;
+  my $config = shift;
+  my $updates = "<ul>\n";
+  my $counter = 0;
+  foreach my $entry (@$archive){
+    $counter++;
+    if($counter > $config->{whats_new}){
+      last;
+    }else{
+      $updates .= \'<li>\'.$entry->{created_at}
+	.\': <a href="\'.$entry->{www_path}
+	.\'">\'.$entry->{title}
+	."</a> - ".&escape_html($entry->{summary})." - </li>\n";
+    }
+  }
+  $updates .= "</ul>\n";
+  return $updates;
+}
+
+sub related_tags(){
+  my $tmp_tags = shift;
+  my $tag_info = shift;
+  my $tmp_tag_html = \'\';
+  $tmp_tag_html .= "<ul>\n";
+  foreach my $tmp_tag (@$tmp_tags){
+    $tmp_tag_html .= "<li> <a href=\"".$tag_info->{$tmp_tag}->{path}."\">".&escape_html($tmp_tag)."</a></li>\n";
+  }
+  $tmp_tag_html .= "</ul>\n";
+  return $tmp_tag_html;
+}
+
 1;
 ';
     open(my $fh, ">", $files->{user_function});
@@ -836,12 +869,20 @@ sub compile_articles{
       $tmp_tag_html .= "<li> <a href=\"".$tag_info->{$tmp_tag}->{path}."\">".&escape_html($tmp_tag)."</a></li>\n";
     }
     $tmp_tag_html .= "</ul>\n";
+    my $user_tmp_tag_html = '';
+
+    if($user_function_load == 1){
+      if(defined(NikkiUserFunction::related_tags())){
+	$user_tmp_tag_html = NikkiUserFunction::related_tags($tmp_tags,$tag_info);
+      }
+    }
     my $created_at = $hist->{articles}->{$entry}->{created_at};
     my $updated_at = $hist->{articles}->{$entry}->{updated_at};
     my $author = $config->{author};
     my $content = $converted->{$entry}->{content};
     $body =~ s/_=_CONTENT_=_/$content/;
     $body =~ s/_=_RELATED_TAGS_=_/$tmp_tag_html/;
+    $body =~ s/_=_USER_DEFINED_RELATED_TAGS_=_/$user_tmp_tag_html/;
     $body =~ s/_=_PREVIOUS_=_/$prev/;
     $body =~ s/_=_NEXT_=_/$next/;
     $body =~ s/_=_CREATED_AT_=_/$created_at/;
@@ -1039,6 +1080,13 @@ sub compile_articles{
   $updates .= "</ul>\n";
   $atom_content .= "</feed>\n";
 
+  my $user_updates = '';
+  if($user_function_load == 1){
+    if(defined(NikkiUserFunction::whats_new())){
+      $user_updates = NikkiUserFunction::whats_new($archive,$config);
+    }
+  }
+
   open(my $fh_atom, ">", $dirs->{public_dir}.'atom.xml');
   print $fh_atom $atom_content;
   close($fh_atom);
@@ -1046,6 +1094,7 @@ sub compile_articles{
   $updates .= "<ul>\n";
   my $site_name = $config->{site_name};
   $body_index =~ s/_=_UPDATES_=_/$updates/;
+  $body_index =~ s/_=_USER_DEFINED_UPDATES_=_/$user_updates/;
   my $meta_info_index = "<meta name=\"twitter:card\" content=\"summary\" />\n";
   $meta_info_index .= "<meta name=\"twitter:site\" content=\"$twitter_site_name\" />\n";
   $meta_info_index .= "<meta name=\"twitter:creator\" content=\"$twitter_creator\" />\n";
