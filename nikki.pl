@@ -63,7 +63,7 @@ our $files =
 
 ## commands
 my $command = $ARGV[0] // 'help';
-my $name = $ARGV[1] // 0;
+my $name = $ARGV[1] // '';
 
 if($command eq 'init'){
 
@@ -79,7 +79,7 @@ if($command eq 'init'){
   &make_init_files;
   print "Initialization Complete!\n";
 }elsif($command eq 'new'){
-  &make_nikki;
+  &make_nikki($name);
 }elsif($command eq 'rehash'){
   &rehash_db;
 }elsif($command eq 'gen'){
@@ -446,6 +446,7 @@ sub related_tags(){
 
 ## make empty NIKKI
 sub make_nikki{
+  my $name = shift;
   my $t = localtime;
   my $epoch = time();
   my $proc = $$;
@@ -460,12 +461,16 @@ sub make_nikki{
     mkpath($dir) or die "Could not create directory: $!\n";
   }
   my $filename_base = $year.'_'.$month.'_'.$day.'_';
-  my $filename = $filename_base.'999X_'.$epoch.$proc.'.nk';
+  my $filename = $filename_base.'999X_'.$epoch.$proc.$name.'.nk';
   for(1 .. 999){
     my $num = $_;
     my $tmp_filename = $filename_base.sprintf("%03d",$num).'.nk';
-    unless(-e $dir.$tmp_filename){
+    my $tmp_filename_with_name = $filename_base.sprintf("%03d",$num).$name.'.nk';
+    if(!(-e $dir.$tmp_filename) and $name eq ''){
       $filename = $tmp_filename;
+      last;
+    }elsif(!(-e $dir.$tmp_filename_with_name) and $name ne ''){
+      $filename = $tmp_filename_with_name;
       last;
     }
   }
@@ -615,6 +620,15 @@ sub compile_articles{
   my $config = &load_config();
   print "Load Config: OK.\n";
   my $url_base = '';
+  unless(-d $dirs->{tags_dir}){
+    mkpath($dirs->{tags_dir}) or die "Could not create directory: $!\n";
+  }
+  unless(-d $dirs->{entry_dir}){
+    mkpath($dirs->{entry_dir}) or die "Could not create directory: $!\n";
+  }
+  unless(-d $dirs->{asset_dir}){
+    mkpath($dirs->{asset_dir}) or die "Could not create directory: $!\n";
+  }
   if(defined($config->{url}) and $config->{url} ne ''){
     $url_base = $config->{url};
   }
