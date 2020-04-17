@@ -787,8 +787,10 @@ sub compile_articles{
     }
     $body_below =~ s/^<pre><code>(.*?)<\/code><\/pre>$/&remove_tag($1)/emsg;
 
-    if($user_function_load){
-      $body_below = NikkiUserFunction::entry_filter($body_below);
+    if($user_function_load == 1){
+      if(defined(&NikkiUserFunction::entry_filter)){
+	$body_below = NikkiUserFunction::entry_filter($body_below);
+      }
     }
 
     # restore escaped raw html
@@ -895,7 +897,7 @@ sub compile_articles{
     my $user_tmp_tag_html = '';
 
     if($user_function_load == 1){
-      if(defined(NikkiUserFunction::related_tags())){
+      if(defined(&NikkiUserFunction::related_tags)){
 	$user_tmp_tag_html = NikkiUserFunction::related_tags($tmp_tags,$tag_info);
       }
     }
@@ -966,9 +968,11 @@ sub compile_articles{
   }
   $archive_list .= "</ul>\n";
   $body_archive =~ s/_=_ARCHIVE_=_/$archive_list/;
-  if($user_function_load){
-    my $user_archive = NikkiUserFunction::archive_generator($archive);
-    $body_archive =~ s/_=_USER_DEFINED_ARCHIVE_=_/$user_archive/;
+  if($user_function_load == 1){
+    if(defined(&NikkiUserFunction::archive_generator)){
+      my $user_archive = NikkiUserFunction::archive_generator($archive);
+      $body_archive =~ s/_=_USER_DEFINED_ARCHIVE_=_/$user_archive/;
+    }
   }
 
   my $twitter_site_name = $config->{twitter_site_name} // '';
@@ -1013,7 +1017,7 @@ sub compile_articles{
     $related_list .= "<ul>\n";
     my $user_related_list = "";
     if($user_function_load == 1){
-      if(defined(NikkiUserFunction::related_content())){
+      if(defined(&NikkiUserFunction::related_content)){
 	$user_related_list = NikkiUserFunction::related_content($tag_related);
       }
     }
@@ -1065,8 +1069,10 @@ sub compile_articles{
     $html_tag_index =~ s/_=_BODY_=_/$template_tag_index/;
   }
   if($user_function_load){
-    my $user_tag_index = NikkiUserFunction::tag_index_generator($tag_info);
-    $html_tag_index =~ s/_=_USER_DEFINED_TAG_INDEX_=_/$user_tag_index/;
+    if(defined(&NikkiUserFunction::tag_index_generator)){
+      my $user_tag_index = NikkiUserFunction::tag_index_generator($tag_info);
+      $html_tag_index =~ s/_=_USER_DEFINED_TAG_INDEX_=_/$user_tag_index/;
+    }
   }
   open(my $fh_tag_index,">",$dirs->{public_dir}.'tags.html');
   print $fh_tag_index $html_tag_index;
@@ -1105,7 +1111,7 @@ sub compile_articles{
 
   my $user_updates = '';
   if($user_function_load == 1){
-    if(defined(NikkiUserFunction::whats_new())){
+    if(defined(&NikkiUserFunction::whats_new)){
       $user_updates = NikkiUserFunction::whats_new($archive,$config);
     }
   }
