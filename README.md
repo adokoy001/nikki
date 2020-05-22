@@ -33,9 +33,11 @@ After this process completed, You will get static html files in ```public/``` di
 
 ## .nk Markup Language Cheat Sheet
 
+### Headlines
+
 ```
 
-==h1 this line would converted to <h1>*</h1>
+==h1 this line would be converted to <h1>*</h1>
 
 ==h2 level h2
 
@@ -45,19 +47,23 @@ After this process completed, You will get static html files in ```public/``` di
 
 ==h5 level h5
 
+### Source code
 
 ==precode
 
-this area would converted to <pre><code>AREA</code></pre>
+this area would be converted to <pre><code>AREA</code></pre>
 
 precode==
 
-
 something ==code code style code== 
 
+```
 
+### List
 
 list like below.
+
+```
 
 ==ul
 ==li something 001
@@ -65,9 +71,11 @@ list like below.
 ==li something 003
 ul==
 
-
+```
 
 You can use other lists(<ol> type="1",a,A,i,I) like below.
+
+```
 
 ==oln  (<ol type="1">)
 ==ola  (<ol type="a">)
@@ -75,31 +83,54 @@ You can use other lists(<ol> type="1",a,A,i,I) like below.
 ==oli  (<ol type="i">)
 ==olI  (<ol type="I">)
 
+```
 
 Definition like below.
+
+```
 
 ==dl
 ==dt Name
 ==dd Description and Definition
 dl==
 
+```
 
+### Link & Images
 
 hyper-link like below.
 
+```
+
 ==a my web site is here ==href https://your.web.site.example.com a==
 
-would converted to : <a href="https://your.web.site.example.com">my web site is here</a>
+would be converted to : <a href="https://your.web.site.example.com">my web site is here</a>
 
-
+```
 
 
 show image like below.
 
+```
 ==img /images/icon/my_icon.png img==
 
 would converted to : <img src="/images/icon/my_icon.png">
 
+```
+
+### Literal coding
+
+You can write html code by using ```literal``` like below.
+
+```
+==literal
+
+<table class="table">
+ <tr><th style="background-color: AA0000">A</th><td>data1</td></tr>
+ <tr><th>B</th><td>data2</td></tr>
+</table>
+
+literal==
 
 ```
 
