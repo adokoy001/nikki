@@ -80,6 +80,8 @@ if($command eq 'init'){
   print "Initialization Complete!\n";
 }elsif($command eq 'new'){
   &make_nikki($name);
+}elsif($command eq 'dnew'){
+  &make_nikki($name,'draft');
 }elsif($command eq 'rehash'){
   &rehash_db;
 }elsif($command eq 'gen'){
@@ -92,6 +94,7 @@ Usage: perl nikki.pl <command>
  Commands:
   init    : Create new diary project.
   new     : Create new article.
+  dnew    : Create new draft.
   gen     : Compile and generate static html file.
   rehash  : ReOrg internal database.
   info    : Show all articles information
@@ -447,6 +450,7 @@ sub related_tags(){
 ## make empty NIKKI
 sub make_nikki{
   my $name = shift;
+  my $mode = shift // '';
   my $t = localtime;
   my $epoch = time();
   my $proc = $$;
@@ -456,7 +460,12 @@ sub make_nikki{
   $month = sprintf("%02d",$month);
   my $day = sprintf("%02d",$mday);
   my $relational_path = $year.'/'.$month.'/';
-  my $dir = $dirs->{article_dir}.$relational_path;
+  my $dir;
+  if($mode eq 'draft'){
+    $dir = $dirs->{article_dir}.'draft/'.$relational_path;
+  }else{
+    $dir = $dirs->{article_dir}.$relational_path;
+  }
   unless(-d $dir){
     mkpath($dir) or die "Could not create directory: $!\n";
   }
@@ -485,19 +494,22 @@ sub make_nikki{
   binmode(FILE);
   my $md5_value =  Digest::MD5->new->addfile(*FILE)->hexdigest;
   close(FILE);
-  my $current_timestamp = &get_current_timestamp;
-  my $hist_content = retrieve $files->{hist};
-  $hist_content->{articles}->{$relational_path.$filename} =
-    {
-     rel_path => $relational_path,
-     filename => $filename,
-     created_at => $current_timestamp,
-     updated_at => $current_timestamp,
-     last_md5 => $md5_value
-    };
-  nstore $hist_content, $files->{hist};
-  print "Empty article was created. edit ".$dir.$filename."\n";
-
+  if($mode ne 'draft'){
+    my $current_timestamp = &get_current_timestamp;
+    my $hist_content = retrieve $files->{hist};
+    $hist_content->{articles}->{$relational_path.$filename} =
+      {
+       rel_path => $relational_path,
+       filename => $filename,
+       created_at => $current_timestamp,
+       updated_at => $current_timestamp,
+       last_md5 => $md5_value
+      };
+    nstore $hist_content, $files->{hist};
+    print "Empty article was created. edit ".$dir.$filename."\n";
+  }else{
+    print "Empty draft was created. edit ".$dir.$filename."\n";
+  }
 }
 
 sub search_all{
