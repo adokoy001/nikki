@@ -13,6 +13,11 @@ my $user_function_load = eval{
   1;
   };
 
+my $text_markdown_load = eval {
+  require Text::Markdown;
+  1;
+  };
+
 $Storable::canonical = 1;
 
 ###################################################
@@ -80,8 +85,12 @@ if($command eq 'init'){
   print "Initialization Complete!\n";
 }elsif($command eq 'new'){
   &make_nikki($name);
+}elsif($command eq 'newmd'){
+  &make_nikki($name,undef,'.md');
 }elsif($command eq 'dnew'){
   &make_nikki($name,'draft');
+}elsif($command eq 'dnewmd'){
+  &make_nikki($name,'draft','.md');
 }elsif($command eq 'rehash'){
   &rehash_db;
 }elsif($command eq 'gen'){
@@ -94,7 +103,9 @@ Usage: perl nikki.pl <command>
  Commands:
   init    : Create new diary project.
   new     : Create new article.
+  newmd   : Create new Markdown article.
   dnew    : Create new draft.
+  dnewmd  : Create new Markdown draft.
   gen     : Compile and generate static html file.
   rehash  : ReOrg internal database.
   info    : Show all articles information
@@ -451,6 +462,7 @@ sub related_tags(){
 sub make_nikki{
   my $name = shift;
   my $mode = shift // '';
+  my $type = shift // '.nk';
   my $t = localtime;
   my $epoch = time();
   my $proc = $$;
@@ -470,16 +482,16 @@ sub make_nikki{
     mkpath($dir) or die "Could not create directory: $!\n";
   }
   my $filename_base = $year.'_'.$month.'_'.$day.'_';
-  my $filename = $filename_base.'999X_'.$epoch.$proc.$name.'.nk';
+  my $filename = $filename_base.'999X_'.$epoch.$proc.$name.$type;
   for(1 .. 999){
     my $num = $_;
-    my $tmp_filename = $filename_base.sprintf("%03d",$num).'.nk';
-    my $tmp_filename_with_name = $filename_base.sprintf("%03d",$num).$name.'.nk';
-    if(!(-e $dir.$tmp_filename) and $name eq ''){
-      $filename = $tmp_filename;
+    my $tmp_filename = $filename_base.sprintf("%03d",$num);
+    my $tmp_filename_with_name = $filename_base.sprintf("%03d",$num).$name;
+    if(!(-e $dir.$tmp_filename.'.nk') and !(-e $dir.$tmp_filename.'.md') and $name eq ''){
+      $filename = $tmp_filename.$type;
       last;
-    }elsif(!(-e $dir.$tmp_filename_with_name) and $name ne ''){
-      $filename = $tmp_filename_with_name;
+    }elsif(!(-e $dir.$tmp_filename_with_name.'.nk') and !(-e $dir.$tmp_filename_with_name.'.md') and $name ne ''){
+      $filename = $tmp_filename_with_name.$type;
       last;
     }
   }
@@ -538,7 +550,7 @@ sub search_all{
   foreach my $year_month_dir (@$year_month){
     opendir(my $dh, $dirs->{article_dir}.$year_month_dir) or die "$1\n";
     while(my $name = readdir $dh){
-      if($name =~ /.*?\.nk$/g){
+      if($name =~ /.*?(\.nk|\.md)$/g){
 	push(@$all_files,$dirs->{article_dir}.$year_month_dir.'/'.$name);
 	push(@$all_files_relative,$year_month_dir.'/'.$name);
       }
@@ -672,7 +684,11 @@ sub compile_articles{
     }
     close($fh);
     my $tmp_path = $config->{document_root}.'entry/'.$file_rel;
-    $tmp_path =~ s/\.nk$/\.html/;
+    my $extension = '.nk';
+    if($tmp_path =~ /\.md$/){
+      $extension = '.md';
+    }
+    $tmp_path =~ s/(\.nk|\.md)$/\.html/;
     my ($body_above,$body_below) = split('==BODY_BELOW==',$content);
     my $title = 'NO TITLE';
     if($body_above =~ /==TITLE_START==(.*?)==TITLE_END==/msg){
@@ -751,79 +767,92 @@ sub compile_articles{
       }
     }
 
-    # escape raw html
-    my $escaped_text;
-    while($body_below =~ /==literal(.+?)literal==/ms){
-      my $tmp_raw_html = $1;
-      my $rand = &gen_rand();
-      $escaped_text->{$rand} = $tmp_raw_html;
-      $body_below =~ s/==literal(.+?)literal==/$rand/ms;
-    }
-    # Specified markup language
-    $body_below =~ s/</&lt;/msg;
-    $body_below =~ s/>/&gt;/msg;
-    $body_below =~ s/^==h([1-6]{1}) (.*?)$/<h$1>$2<\/h$1>/msg;
-    $body_below =~ s/^==hr$/<hr>/msg;
-    ## lists
-    $body_below =~ s/^==ul(.*?)ul==$/<ul>$1<\/ul>/msg;
-    $body_below =~ s/^==oln(.*?)oln==$/<ol type="1">$1<\/ol>/msg;
-    $body_below =~ s/^==ola(.*?)ola==$/<ol type="a">$1<\/ol>/msg;
-    $body_below =~ s/^==olA(.*?)olA==$/<ol type="A">$1<\/ol>/msg;
-    $body_below =~ s/^==oli(.*?)oli==$/<ol type="i">$1<\/ol>/msg;
-    $body_below =~ s/^==olI(.*?)olI==$/<ol type="I">$1<\/ol>/msg;
-    $body_below =~ s/==li (.*?)$/<li>$1<\/li>/msg;
-    ## definition
-    $body_below =~ s/^==dl(.*?)dl==$/<dl>$1<\/dl>/msg;
-    $body_below =~ s/==dt (.*?)$/<dt>$1<\/dt>/msg;
-    $body_below =~ s/==dd (.*?)$/<dd>$1<\/dd>/msg;
-    ## coding
-    $body_below =~ s/^==precode[\r\n|\n|\r]{1}(.*?)^precode==$/<pre><code>$1<\/code><\/pre>/msg;
-    $body_below =~ s/^==pcode[\r\n|\n|\r]{1}(.*?)^pcode==$/<pre><code>$1<\/code><\/pre>/msg;
-    $body_below =~ s/==code (.*?) code==/<code>$1<\/code>/msg;
-    ## modification
-    $body_below =~ s/==big (.*?) big==/<big>$1<\/big>/msg;
-    $body_below =~ s/==small (.*?) small==/<small>$1<\/small>/msg;
-    $body_below =~ s/==del (.*?) del==/<strike>$1<\/strike>/msg;
-    $body_below =~ s/==st (.*?) st==/<strong>$1<\/strong>/msg;
-    $body_below =~ s/==dfn (.*?) dfn==/<dfn>$1<\/dfn>/msg;
-    $body_below =~ s/==em (.*?) em==/<em>$1<\/em>/msg;
-    $body_below =~ s/==i (.*?) i==/<i>$1<\/i>/msg;
-    $body_below =~ s/==b (.*?) b==/<b>$1<\/b>/msg;
-    $body_below =~ s/==u (.*?) u==/<u>$1<\/u>/msg;
-    $body_below =~ s/==span (.*?) ==s (.*?) ==c (.*?) span==/<span style="$2" class="$3">$1<\/span>/msg;
-    $body_below =~ s/==span (.*?) ==c (.*?) ==s (.*?) span==/<span class="$2" style="$3">$1<\/span>/msg;
-    $body_below =~ s/==span (.*?) ==s (.*?) span==/<span style="$2">$1<\/span>/msg;
-    $body_below =~ s/==span (.*?) ==c (.*?) span==/<span class="$2">$1<\/span>/msg;
-    ## link
-    $body_below =~ s/==a (.*?) ==href (.*?) a==/<a href=\"$2\">$1<\/a>/msg;
-    ### suger
-    $body_below =~ s/==link (.*?) link==/<a href=\"$1\">$1<\/a>/msg;
-    $body_below =~ s/==img (.*?) img==/<img src=\"$1\">/msg;
-    ## finalize
-    $body_below =~ s/([\r\n|\n|\r]{1,})([^<>]+?)([\r\n|\n|\r]{2}|\Z)/$1<p>$2<\/p>$3/msg;
-    $body_below =~ s/([\r\n|\n|\r]{1,})([^<>]+?)([\r\n|\n|\r]{2}|\Z)/$1<p>$2<\/p>$3/msg;
-    $body_below =~ s/<p>([\r\n|\n|\r]{1,})<\/p>/$1/msg;
 
-    sub remove_tag(){
-      my $str = shift;
-      $str =~ s/<p>//msg;
-      $str =~ s/<\/p>//msg;
-      my $output = '<pre><code>' . $str . '</pre></code>';
-      return $output;
-    }
-    $body_below =~ s/^<pre><code>(.*?)<\/code><\/pre>$/&remove_tag($1)/emsg;
-
-    if($user_function_load == 1){
-      if(defined(&NikkiUserFunction::entry_filter)){
-	$body_below = NikkiUserFunction::entry_filter($body_below);
+    if($extension eq '.md'){
+      if(defined($text_markdown_load) and $text_markdown_load == 1){
+	$body_below = &Text::Markdown::markdown($body_below);
+      }else{
+	die("ERROR: No Text::Markdown module found!");
       }
+    }else{
+      ## .nk style
+      # escape raw html
+      my $escaped_text;
+      while($body_below =~ /==literal(.+?)literal==/ms){
+	my $tmp_raw_html = $1;
+	my $rand = &gen_rand();
+	$escaped_text->{$rand} = $tmp_raw_html;
+	$body_below =~ s/==literal(.+?)literal==/$rand/ms;
+      }
+      # Specified markup language
+      $body_below =~ s/</&lt;/msg;
+      $body_below =~ s/>/&gt;/msg;
+      $body_below =~ s/^==h([1-6]{1}) (.*?)$/<h$1>$2<\/h$1>/msg;
+      $body_below =~ s/^==hr$/<hr>/msg;
+      ## lists
+      $body_below =~ s/^==ul(.*?)ul==$/<ul>$1<\/ul>/msg;
+      $body_below =~ s/^==oln(.*?)oln==$/<ol type="1">$1<\/ol>/msg;
+      $body_below =~ s/^==ola(.*?)ola==$/<ol type="a">$1<\/ol>/msg;
+      $body_below =~ s/^==olA(.*?)olA==$/<ol type="A">$1<\/ol>/msg;
+      $body_below =~ s/^==oli(.*?)oli==$/<ol type="i">$1<\/ol>/msg;
+      $body_below =~ s/^==olI(.*?)olI==$/<ol type="I">$1<\/ol>/msg;
+      $body_below =~ s/==li (.*?)$/<li>$1<\/li>/msg;
+      ## definition
+      $body_below =~ s/^==dl(.*?)dl==$/<dl>$1<\/dl>/msg;
+      $body_below =~ s/==dt (.*?)$/<dt>$1<\/dt>/msg;
+      $body_below =~ s/==dd (.*?)$/<dd>$1<\/dd>/msg;
+      ## coding
+      $body_below =~ s/^==precode[\r\n|\n|\r]{1}(.*?)^precode==$/<pre><code>$1<\/code><\/pre>/msg;
+      $body_below =~ s/^==pcode[\r\n|\n|\r]{1}(.*?)^pcode==$/<pre><code>$1<\/code><\/pre>/msg;
+      $body_below =~ s/==code (.*?) code==/<code>$1<\/code>/msg;
+      ## modification
+      $body_below =~ s/==big (.*?) big==/<big>$1<\/big>/msg;
+      $body_below =~ s/==small (.*?) small==/<small>$1<\/small>/msg;
+      $body_below =~ s/==del (.*?) del==/<strike>$1<\/strike>/msg;
+      $body_below =~ s/==st (.*?) st==/<strong>$1<\/strong>/msg;
+      $body_below =~ s/==dfn (.*?) dfn==/<dfn>$1<\/dfn>/msg;
+      $body_below =~ s/==em (.*?) em==/<em>$1<\/em>/msg;
+      $body_below =~ s/==i (.*?) i==/<i>$1<\/i>/msg;
+      $body_below =~ s/==b (.*?) b==/<b>$1<\/b>/msg;
+      $body_below =~ s/==u (.*?) u==/<u>$1<\/u>/msg;
+      $body_below =~ s/==span (.*?) ==s (.*?) ==c (.*?) span==/<span style="$2" class="$3">$1<\/span>/msg;
+      $body_below =~ s/==span (.*?) ==c (.*?) ==s (.*?) span==/<span class="$2" style="$3">$1<\/span>/msg;
+      $body_below =~ s/==span (.*?) ==s (.*?) span==/<span style="$2">$1<\/span>/msg;
+      $body_below =~ s/==span (.*?) ==c (.*?) span==/<span class="$2">$1<\/span>/msg;
+      ## link
+      $body_below =~ s/==a (.*?) ==href (.*?) a==/<a href=\"$2\">$1<\/a>/msg;
+      ### suger
+      $body_below =~ s/==link (.*?) link==/<a href=\"$1\">$1<\/a>/msg;
+      $body_below =~ s/==img (.*?) img==/<img src=\"$1\">/msg;
+      ## finalize
+      $body_below =~ s/([\r\n|\n|\r]{1,})([^<>]+?)([\r\n|\n|\r]{2}|\Z)/$1<p>$2<\/p>$3/msg;
+      $body_below =~ s/([\r\n|\n|\r]{1,})([^<>]+?)([\r\n|\n|\r]{2}|\Z)/$1<p>$2<\/p>$3/msg;
+      $body_below =~ s/<p>([\r\n|\n|\r]{1,})<\/p>/$1/msg;
+      
+      sub remove_tag(){
+	my $str = shift;
+	$str =~ s/<p>//msg;
+	$str =~ s/<\/p>//msg;
+	my $output = '<pre><code>' . $str . '</pre></code>';
+	return $output;
+      }
+      $body_below =~ s/^<pre><code>(.*?)<\/code><\/pre>$/&remove_tag($1)/emsg;
+      
+      if(defined($user_function_load) and $user_function_load == 1){
+	if(defined(&NikkiUserFunction::entry_filter)){
+	  $body_below = NikkiUserFunction::entry_filter($body_below);
+	}
+      }
+
+      # restore escaped raw html
+      foreach my $key (sort keys %$escaped_text){
+	my $tmp_text = $escaped_text->{$key};
+	$body_below =~ s/$key/$tmp_text/;
+      }
+      
     }
 
-    # restore escaped raw html
-    foreach my $key (sort keys %$escaped_text){
-      my $tmp_text = $escaped_text->{$key};
-      $body_below =~ s/$key/$tmp_text/;
-    }
+    
     $converted->{$file_rel} =
       {
        rel_path => $hist->{articles}->{$file_rel}->{rel_path},
@@ -839,7 +868,7 @@ sub compile_articles{
       };
   }
 
-  print "Converting to HTML from .nk file: OK.\n";
+  print "Converting to HTML from .nk and .md file: OK.\n";
   my $tmp_prev = undef;
   my $tmp_prev_title = undef;
   my $tmp_next = undef;
@@ -922,7 +951,7 @@ sub compile_articles{
     $tmp_tag_html .= "</ul>\n";
     my $user_tmp_tag_html = '';
 
-    if($user_function_load == 1){
+    if(defined($user_function_load) and $user_function_load == 1){
       if(defined(&NikkiUserFunction::related_tags)){
 	$user_tmp_tag_html = NikkiUserFunction::related_tags($tmp_tags,$tag_info);
       }
@@ -967,7 +996,7 @@ sub compile_articles{
     $html =~ s/_=_HEAD_=_/$head/;
     $html =~ s/_=_BODY_=_/$body/;
 
-    $output_file =~ s/\.nk$/\.html/;
+    $output_file =~ s/(\.nk|\.md)$/\.html/;
     open(my $fh_out,">",$output_file);
     print $fh_out $html;
     close($fh_out);
@@ -994,7 +1023,7 @@ sub compile_articles{
   }
   $archive_list .= "</ul>\n";
   $body_archive =~ s/_=_ARCHIVE_=_/$archive_list/;
-  if($user_function_load == 1){
+  if(defined($user_function_load) and $user_function_load == 1){
     if(defined(&NikkiUserFunction::archive_generator)){
       my $user_archive = NikkiUserFunction::archive_generator($archive);
       $body_archive =~ s/_=_USER_DEFINED_ARCHIVE_=_/$user_archive/;
@@ -1042,7 +1071,7 @@ sub compile_articles{
     }
     $related_list .= "<ul>\n";
     my $user_related_list = "";
-    if($user_function_load == 1){
+    if(defined($user_function_load) and $user_function_load == 1){
       if(defined(&NikkiUserFunction::related_content)){
 	$user_related_list = NikkiUserFunction::related_content($tag_related);
       }
@@ -1094,7 +1123,7 @@ sub compile_articles{
     $template_tag_index =~ s/_=_TAG_INDEX_=_/$body_tag_index/;
     $html_tag_index =~ s/_=_BODY_=_/$template_tag_index/;
   }
-  if($user_function_load){
+  if(defined($user_function_load) and $user_function_load == 1){
     if(defined(&NikkiUserFunction::tag_index_generator)){
       my $user_tag_index = NikkiUserFunction::tag_index_generator($tag_info);
       $html_tag_index =~ s/_=_USER_DEFINED_TAG_INDEX_=_/$user_tag_index/;
@@ -1136,7 +1165,7 @@ sub compile_articles{
   $atom_content .= "</feed>\n";
 
   my $user_updates = '';
-  if($user_function_load == 1){
+  if(defined($user_function_load) and $user_function_load == 1){
     if(defined(&NikkiUserFunction::whats_new)){
       $user_updates = NikkiUserFunction::whats_new($archive,$config);
     }

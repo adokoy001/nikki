@@ -23,6 +23,14 @@ empty article was created. edit /home/yourname/your_diary/articles/2019/12/2019_
 $ nano articles/2019/12/2019_12_31_001.nk
 ```
 
+Also you can write Markdown.
+
+```
+$ perl nikki.pl newmd
+empty article was created. edit /home/yourname/your_diary/articles/2019/12/2019_12_31_002.md
+$ nano articles/2019/12/2019_12_31_002.md
+```
+
 ## Generate HTML files
 
 ```
