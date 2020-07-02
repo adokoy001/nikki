@@ -8,6 +8,8 @@ use Storable qw(nstore retrieve);
 use Safe;
 use lib "$FindBin::Bin/etc";
 
+our $version = 'v1.0.0';
+
 my $user_function_load = eval{
   require NikkiUserFunction;
   1;
@@ -98,26 +100,30 @@ if($command eq 'init'){
 }elsif($command eq 'info'){
   &show_info;
   }else{
-  print 'NIKKI - a simple diary authoring tool.
-Usage: perl nikki.pl <command>
- Commands:
-  init    : Create new diary project.
-  new     : Create new article.
-  newmd   : Create new Markdown article.
-  dnew    : Create new draft.
-  dnewmd  : Create new Markdown draft.
-  gen     : Compile and generate static html file.
-  rehash  : ReOrg internal database.
-  info    : Show all articles information
- Example:
-  $ perl nikki.pl init
-  $ perl nikki.pl new
-  $ perl nikki.pl gen
-How to Update:
- All You Need Is Execute This.
-  $ rm nikki.pl && wget https://raw.githubusercontent.com/adokoy001/nikki/master/nikki.pl
-';
-}
+    print 'NIKKI - a simple diary authoring tool. version: '.$version."\n";
+    if(defined($text_markdown_load) and $text_markdown_load == 1){
+      print " Markdown is available!\n";
+    }else{
+      print " Markdown is not available!\n Please install Text::Markdown if you want to write by it.\n";
+    }
+    print 'Usage: perl nikki.pl <command>'."\n"
+      .'Commands:'."\n"
+      .'  init    : Create new diary project.'."\n"
+      .'  new     : Create new article.'."\n"
+      .'  newmd   : Create new Markdown article.'."\n"
+      .'  dnew    : Create new draft.'."\n"
+      .'  dnewmd  : Create new Markdown draft.'."\n"
+      .'  gen     : Compile and generate static html file.'."\n"
+      .'  rehash  : ReOrg internal database.'."\n"
+      .'  info    : Show all articles information'."\n"
+      .' Example:'."\n"
+      .'  $ perl nikki.pl init'."\n"
+      .'  $ perl nikki.pl new'."\n"
+      .'  $ perl nikki.pl gen'."\n"
+      .'How to Update:'."\n"
+      .' All You Need Is Execute This.'."\n"
+      .'  $ rm nikki.pl && wget https://raw.githubusercontent.com/adokoy001/nikki/master/nikki.pl'."\n";
+  }
 
 
 #### subroutines
@@ -772,7 +778,8 @@ sub compile_articles{
       if(defined($text_markdown_load) and $text_markdown_load == 1){
 	$body_below = &Text::Markdown::markdown($body_below);
       }else{
-	die("ERROR: No Text::Markdown module found!");
+	warn("WARN: No Text::Markdown module found! $file_rel will be ignored.");
+	next;
       }
     }else{
       ## .nk style
@@ -852,7 +859,6 @@ sub compile_articles{
       
     }
 
-    
     $converted->{$file_rel} =
       {
        rel_path => $hist->{articles}->{$file_rel}->{rel_path},
@@ -868,7 +874,12 @@ sub compile_articles{
       };
   }
 
-  print "Converting to HTML from .nk and .md file: OK.\n";
+
+  if(defined($text_markdown_load) and $text_markdown_load == 1){
+    print "Converting to HTML from .nk and .md file: OK.\n";
+  }else{
+    print "Converting to HTML from .nk file: OK.\n";
+  }
   my $tmp_prev = undef;
   my $tmp_prev_title = undef;
   my $tmp_next = undef;
